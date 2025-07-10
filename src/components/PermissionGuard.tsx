@@ -24,11 +24,12 @@ const PermissionGuard: React.FC<PermissionGuardProps> = ({
 }) => {
   const navigate = useNavigate();
   
-  // Always allow access in development mode or if user has permission
+  // Always allow access in development mode, admin mode, or if user has permission
   if (hasPermission) {
   }
   const isDevelopment = process.env.NODE_ENV === 'development';
   
+  // Grant full access in development mode
   if (hasPermission || isDevelopment) {
     return <>{children}</>;
   }

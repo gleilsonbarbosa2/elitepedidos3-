@@ -268,7 +268,7 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
   // Filter menu items based on operator permissions
   useEffect(() => {
     if (!operator) {
-      // If no operator provided, show all menu items (admin mode) 
+      // If no operator provided, show all menu items (admin mode)
       setFilteredMenuCategories(menuCategories);
       return;
     }
@@ -449,10 +449,10 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
                       const permissionNeeded = menuPermissionMap[item.id];
                       // Always show all menu items when no operator is provided (admin mode)
                       const hasMenuPermission = !operator || !permissionNeeded || hasPermission(permissionNeeded as any);
-                      
+
                       // Skip rendering this menu item if user doesn't have permission
                       if (!hasMenuPermission) return null;
-                      
+
                       return (
                         <button
                           key={item.id}

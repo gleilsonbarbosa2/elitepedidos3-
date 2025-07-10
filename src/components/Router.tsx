@@ -5,7 +5,7 @@ import OrderTrackingPage from './Customer/OrderTrackingPage';
 import OrderLookup from './Customer/OrderLookup';
 import CustomerCashbackPage from './Customer/CustomerCashbackPage';
 import AdminPage from './Admin/AdminPage';
-import UnifiedAttendancePage from './UnifiedAttendancePage';
+import AttendancePage from './AttendancePage';
 import AccessDeniedPage from './AccessDeniedPage';
 import { useState } from 'react';
 import PDVLogin from './PDV/PDVLogin';
@@ -60,7 +60,7 @@ const Router: React.FC = () => {
         <Route path="/buscar-pedido" element={<OrderLookup />} />
         <Route path="/pedido/:orderId" element={<OrderTrackingPage />} />
         <Route path="/meu-cashback" element={<CustomerCashbackPage />} />
-        <Route path="/atendimento" element={<UnifiedAttendancePage />} />
+        <Route path="/atendimento" element={<AttendancePage />} />
         <Route path="/administrativo" element={<AdminPage />} />
         <Route path="/acesso-negado" element={<AccessDeniedPage />} />
         <Route path="/pdv" element={loggedInOperator ? <PDVMain onBack={handlePDVLogout} operator={loggedInOperator} /> : <PDVLogin onLogin={handlePDVLogin} />} />

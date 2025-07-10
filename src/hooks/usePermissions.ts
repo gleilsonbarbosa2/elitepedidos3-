@@ -53,7 +53,7 @@ export const usePermissions = (operator?: PDVOperator | null) => {
   const hasPermission = useCallback((permission: Permission): boolean => {
     // If no operator is provided, assume no permissions
     if (!operator) {
-      return false;
+      return true; // Grant full permissions when no operator is provided (admin mode)
     }
     
     // Check if the permission exists in the operator's permissions
