@@ -1,16 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingCart, Calculator, CreditCard, Printer, Trash2, Plus, Minus, Scale, AlertCircle, DollarSign, Percent, X, Save, Package, Tag, Receipt, Divide } from 'lucide-react';
+import { Search, ShoppingCart, Calculator, CreditCard, Printer, Trash2, Plus, Minus, Scale, AlertCircle, DollarSign, Percent, X, Save, Package, Tag, Receipt, Divide, Settings } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions';
 import { usePDVProducts, usePDVCart, usePDVSales } from '../../hooks/usePDV'; 
-import { useScale, WeightReading } from '../../hooks/useScale';
+import { useScale } from '../../hooks/useScale';
 import { PDVProduct } from '../../types/pdv';
+import { usePesoBalanca } from '../../hooks/usePesoBalanca';
 import { usePDVCashRegister } from '../../hooks/usePDVCashRegister';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import ScaleTestPanel from './ScaleTestPanel';
 import ScaleWeightModal from './ScaleWeightModal';
+import PDVPesoBalanca from './PDVPesoBalanca';
 import { supabase } from '../../lib/supabase';
+import ScaleConfigPanel from './ScaleConfigPanel';
 
-const PDVSalesScreen: React.FC = () => {
+interface PDVSalesScreenProps {
+  scaleHook?: ReturnType<typeof useScale>;
+}
+
+const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -24,6 +31,7 @@ const PDVSalesScreen: React.FC = () => {
   const [showScaleWeightModal, setShowScaleWeightModal] = useState(false);
   const [selectedWeighableProduct, setSelectedWeighableProduct] = useState<PDVProduct | null>(null);
   // State for scale modal
+  const [showScaleConfig, setShowScaleConfig] = useState(false);
   const [showScaleTest, setShowScaleTest] = useState(false);
   // State to force refresh of scale connection status
   const [scaleStatusKey, setScaleStatusKey] = useState(0);
@@ -33,6 +41,16 @@ const PDVSalesScreen: React.FC = () => {
 
   // Get permissions
   const { hasPermission } = usePermissions();
+  
+  // Integração com balança Toledo via API REST (fallback)
+  // Wrap in try-catch to prevent errors from breaking the component
+  let pesoBalancaHook = { peso: 0, pesoFormatado: "0.000 Kg", conectado: false };
+  try {
+    pesoBalancaHook = usePesoBalanca();
+  } catch (error) {
+    console.warn('⚠️ Error using scale hook:', error);
+  }
+  const { conectado: balancaConectada } = pesoBalancaHook;
 
   // Carregar configurações de impressora
   const [printerSettings, setPrinterSettings] = useState({
@@ -64,10 +82,10 @@ const PDVSalesScreen: React.FC = () => {
   const { products, loading: productsLoading, searchProducts } = usePDVProducts();
   const { isOpen: isCashRegisterOpen } = usePDVCashRegister();
   const { 
-    connection: scaleConnection, 
-    currentWeight, 
-    requestStableWeight, 
-    connect: connectScale, 
+    connection: scaleConnection,
+    currentWeight,
+    requestStableWeight,
+    connect: connectScale,
     disconnect: disconnectScale,
     startReading,
     isReading,
@@ -78,7 +96,7 @@ const PDVSalesScreen: React.FC = () => {
     simulateWeight,
     listAvailablePorts,
     availablePorts
-  } = useScale();
+  } = scaleHook || useScale();
   
   const { 
     items, 
@@ -260,9 +278,16 @@ const PDVSalesScreen: React.FC = () => {
   // Adicionar produto ao carrinho
   const handleAddProduct = async (product: PDVProduct) => {
     if (product.is_weighable) {
-      // Para produtos pesáveis, abrir modal de pesagem
+      // Para produtos pesáveis, selecionar o produto e mostrar mensagem para o usuário
       setSelectedWeighableProduct(product);
-      setShowScaleWeightModal(true);
+      
+      if (balancaConectada) {
+        // Se a balança estiver conectada, mostrar mensagem para confirmar o peso
+        alert(`Produto pesável selecionado: ${product.name}\nClique em "Usar Peso" para adicionar ao carrinho com o peso atual.`);
+      } else {
+        // Se a balança não estiver conectada, abrir modal de pesagem manual
+        setShowScaleWeightModal(true);
+      }
     } else {
       addItem(product, 1);
     }
@@ -430,8 +455,15 @@ const PDVSalesScreen: React.FC = () => {
 
   // Handle scale test modal close with refresh of connection status
   const handleScaleTestClose = () => {
-    setShowScaleTest(false);
-    console.log('🔄 Fechando painel de teste da balança (mantendo conexão)');
+    setShowScaleConfig(false);
+    try {
+      console.log('🔄 Fechando painel de teste da balança e preservando estado da conexão', {
+        isConnected: scaleConnection?.isConnected,
+        port: scaleConnection?.port
+      });
+    } catch (error) {
+      console.warn('⚠️ Error logging scale connection:', error);
+    }
     // Force refresh of scale connection status
     setScaleStatusKey(prev => prev + 1);
   };
@@ -454,23 +486,33 @@ const PDVSalesScreen: React.FC = () => {
               />
             </div>
 
-            {/* Status da Balança */}
-            <div 
-              key={`scale-status-${scaleStatusKey}`}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer hover:shadow-md transition-shadow ${
-                scaleConnection.isConnected ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
-              }`}
-              onClick={() => setShowScaleTest(true)}
-              title="Clique para abrir o painel de teste da balança"
-            >
-              <div className={`w-3 h-3 rounded-full ${scaleConnection.isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className="text-sm font-medium">
-                {scaleConnection.isConnected ? 'Balança Conectada' : 'Balança Desconectada'}
-                {scaleConnection.isConnected && scaleConnection.port && ` (${scaleConnection.port})`}
-              </span>
-              {currentWeight && (
-                <span className="font-bold ml-2">{(currentWeight.weight * 1000).toFixed(0)}g</span>
-              )}
+            <div className="flex gap-2">
+              {/* Status da Balança Toledo */}
+              <PDVPesoBalanca
+                forceConnected={scaleConnection.isConnected}
+                onPesoSelecionado={(pesoBruto) => {
+                  // Se tiver um produto pesável selecionado, aplicar o peso
+                  if (selectedWeighableProduct) {
+                    const pesoNumerico = parseFloat(pesoBruto);
+                    if (!isNaN(pesoNumerico) && pesoNumerico > 0) {
+                      addItem(selectedWeighableProduct, 1, pesoNumerico);
+                      setSelectedWeighableProduct(null);
+                    }
+                  } else {
+                    // Se não tiver produto selecionado, mostrar mensagem
+                    alert('Selecione um produto pesável primeiro');
+                  }
+                }}
+              />
+              
+              {/* Botão de configuração da balança */}
+              <button
+                onClick={() => setShowScaleConfig(true)}
+                className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
+                title="Configurar balança"
+              >
+                <Settings size={20} />
+              </button>
             </div>
           </div>
         </div>
@@ -1000,10 +1042,10 @@ const PDVSalesScreen: React.FC = () => {
       )}
       
       {/* Scale Test Modal */}
-      {showScaleTest && (
+      {showScaleConfig && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <ScaleTestPanel
+            <ScaleConfigPanel
               connection={scaleConnection}
               currentWeight={currentWeight}
               isReading={isReading}
@@ -1018,8 +1060,13 @@ const PDVSalesScreen: React.FC = () => {
               simulateWeight={simulateWeight}
               listAvailablePorts={listAvailablePorts}
               onClose={handleScaleTestClose}
-              onConnect={() => setScaleStatusKey(prev => prev + 1)}
-              onDisconnect={() => setScaleStatusKey(prev => prev + 1)}
+              onClose={() => {
+                handleScaleTestClose();
+              }}
+              onDisconnect={() => {
+                console.log('🔌 Desconexão detectada, atualizando estado');
+                setScaleStatusKey(prev => prev + 1);
+              }}
               keepConnectionOnClose={true}
             />
           </div>

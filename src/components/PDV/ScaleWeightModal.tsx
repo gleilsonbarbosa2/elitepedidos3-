@@ -26,7 +26,10 @@ const ScaleWeightModal: React.FC<ScaleWeightModalProps> = ({
   const [manualWeight, setManualWeight] = useState<string>('');
   const [isRequestingWeight, setIsRequestingWeight] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [weightMode, setWeightMode] = useState<'scale' | 'manual'>(isScaleConnected ? 'scale' : 'manual');
+  // Default to manual mode if scale is not connected
+  const [weightMode, setWeightMode] = useState<'scale' | 'manual'>(
+    isScaleConnected ? 'scale' : 'manual'
+  );
   const [weightHistory, setWeightHistory] = useState<WeightReading[]>([]);
   const [weightAttempts, setWeightAttempts] = useState(0);
 
@@ -217,7 +220,7 @@ const ScaleWeightModal: React.FC<ScaleWeightModalProps> = ({
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
                 <div className="text-5xl font-bold mb-2 font-mono">
                   {currentWeight 
-                    ? `${(currentWeight.weight * 1000).toFixed(0)}g`
+                    ? `${Math.max(0, (currentWeight.weight * 1000)).toFixed(0)}g`
                     : '---'
                   }
                 </div>

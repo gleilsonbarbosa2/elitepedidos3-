@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Calculator, 
   Package, 
-  DollarSign,
+  DollarSign, 
+  Settings,
   Truck, 
   ArrowLeft,
   ShoppingBag
@@ -23,10 +24,14 @@ interface UnifiedAttendancePanelProps {
 const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator, scaleHook }) => {
   const [activeTab, setActiveTab] = useState<'sales' | 'orders' | 'cash'>('sales');
   const { hasPermission } = usePermissions(operator);
+  const scale = useScale();
   const { orders } = useOrders();
   
   // Calculate pending orders count from the orders data
   const pendingOrdersCount = orders.filter(order => order.status === 'pending').length;
+
+  // Check if user is admin
+  const isAdmin = !operator || operator.code?.toUpperCase() === 'ADMIN';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -51,7 +56,7 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
         {/* Navigation Tabs */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
           <div className="flex flex-wrap gap-4">
-            {true && (
+            {(isAdmin || hasPermission('can_view_sales')) && (
               <button
                 onClick={() => setActiveTab('sales')}
                 className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
@@ -65,7 +70,7 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
               </button>
             )}
             
-            {true && (
+            {(isAdmin || hasPermission('can_view_orders')) && (
               <button
                 onClick={() => setActiveTab('orders')}
                 className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 relative ${
@@ -84,7 +89,7 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
               </button>
             )}
             
-            {true && (
+            {(isAdmin || hasPermission('can_view_cash_register')) && (
               <button
                 onClick={() => setActiveTab('cash')}
                 className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
@@ -102,9 +107,9 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
 
         {/* Content */}
         <div className="transition-all duration-300">
-          {activeTab === 'sales' && <PDVSalesScreen {...scaleHook} />}
-          {activeTab === 'orders' && <AttendantPanel />}
-          {activeTab === 'cash' && <CashRegisterMenu />}
+          {activeTab === 'sales' && (isAdmin || hasPermission('can_view_sales')) && <PDVSalesScreen scaleHook={scaleHook || scale} />}
+          {activeTab === 'orders' && (isAdmin || hasPermission('can_view_orders')) && <AttendantPanel />}
+          {activeTab === 'cash' && (isAdmin || hasPermission('can_view_cash_register')) && <CashRegisterMenu />}
         </div>
       </div>
     </div>

@@ -7,44 +7,71 @@ interface ScaleConfigPanelProps {
   onConnect?: () => void;
   onDisconnect?: () => void;
   keepConnectionOnClose?: boolean;
+  connection?: any;
+  currentWeight?: any;
+  isReading?: boolean;
+  lastError?: string | null;
+  reconnecting?: boolean;
+  scaleConfig?: any;
+  availablePorts?: string[];
+  connect?: (portName?: string) => Promise<boolean>;
+  disconnect?: () => Promise<boolean>;
+  requestStableWeight?: () => Promise<any>;
+  updateConfig?: (newConfig: any) => void;
+  simulateWeight?: (weight: number) => any;
+  listAvailablePorts?: () => Promise<string[]>;
 }
 
 const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({ 
   onClose,
   onConnect,
   onDisconnect,
-  keepConnectionOnClose = true
+  keepConnectionOnClose = true,
+  connection,
+  currentWeight, 
+  isReading, 
+  lastError, 
+  reconnecting,
+  scaleConfig,
+  availablePorts,
+  connect, 
+  disconnect, 
+  requestStableWeight, 
+  updateConfig,
+  simulateWeight,
+  listAvailablePorts
 }) => {
-  const { 
-    connection,
-    availablePorts,
-    currentWeight, 
-    isReading, 
-    lastError, 
-    reconnecting,
-    scaleConfig,
-    connect, 
-    disconnect, 
-    listAvailablePorts,
-    requestStableWeight, 
-    simulateWeight,
-    updateConfig
-  } = useScale();
+  // Use props if provided, otherwise use the hook
+  const scale = useScale();
+  
+  const actualConnection = connection || scale.connection;
+  const actualCurrentWeight = currentWeight || scale.currentWeight;
+  const actualIsReading = isReading !== undefined ? isReading : scale.isReading;
+  const actualLastError = lastError || scale.lastError;
+  const actualReconnecting = reconnecting !== undefined ? reconnecting : scale.reconnecting;
+  const actualScaleConfig = scaleConfig || scale.scaleConfig;
+  const actualAvailablePorts = availablePorts || scale.availablePorts;
+  const actualConnect = connect || scale.connect;
+  const actualDisconnect = disconnect || scale.disconnect;
+  const actualRequestStableWeight = requestStableWeight || scale.requestStableWeight;
+  const actualUpdateConfig = updateConfig || scale.updateConfig;
+  const actualSimulateWeight = simulateWeight || scale.simulateWeight;
+  const actualListAvailablePorts = listAvailablePorts || scale.listAvailablePorts;
 
   // Configuration state
   const [baudRate, setBaudRate] = useState<number>(4800); // Changed from scaleConfig.baudRate to 4800
-  const [dataBits, setDataBits] = useState<number>(scaleConfig.dataBits);
-  const [stopBits, setStopBits] = useState<number>(scaleConfig.stopBits);
-  const [parity, setParity] = useState<string>(scaleConfig.parity);
-  const [flowControl, setFlowControl] = useState<string>(scaleConfig.flowControl);
+  const [dataBits, setDataBits] = useState<number>(actualScaleConfig.dataBits);
+  const [stopBits, setStopBits] = useState<number>(actualScaleConfig.stopBits);
+  const [parity, setParity] = useState<string>(actualScaleConfig.parity);
+  const [flowControl, setFlowControl] = useState<string>(actualScaleConfig.flowControl);
   const [port, setPort] = useState<string>('');
   const [manualWeight, setManualWeight] = useState<string>('');
   const [showPortSelection, setShowPortSelection] = useState(false);
   const [rawData, setRawData] = useState<string[]>([]);
   const [showRawData, setShowRawData] = useState<boolean>(true);
   const [selectedProtocol, setSelectedProtocol] = useState<string>('PRT2');
-  const [autoReconnect, setAutoReconnect] = useState<boolean>(scaleConfig.reconnectInterval > 0);
-  const [stableTimeout, setStableTimeout] = useState<number>(scaleConfig.stableWeightTimeout);
+  const [autoReconnect, setAutoReconnect] = useState<boolean>(actualScaleConfig.reconnectInterval > 0);
+  const [stableTimeout, setStableTimeout] = useState<number>(actualScaleConfig.stableWeightTimeout);
   const [configChanged, setConfigChanged] = useState<boolean>(false);
   const [testingConnection, setTestingConnection] = useState<boolean>(false);
   const [readingStableWeight, setReadingStableWeight] = useState<boolean>(false);
@@ -107,12 +134,12 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
 
   // Update raw data when weight changes
   useEffect(() => {
-    if (currentWeight) {
+    if (actualCurrentWeight) {
       const timestamp = new Date().toLocaleTimeString();
-      const weightStr = `${timestamp} - ${currentWeight.stable ? 'ST' : 'US'},GS,${currentWeight.weight < 0 ? '-' : '+'}${(currentWeight.weight * 1000).toFixed(0).padStart(5, '0')}g`;
+      const weightStr = `${timestamp} - ${actualCurrentWeight.stable ? 'ST' : 'US'},GS,${actualCurrentWeight.weight < 0 ? '-' : '+'}${(actualCurrentWeight.weight * 1000).toFixed(0).padStart(5, '0')}g`;
       setRawData(prev => [...prev.slice(-19), weightStr]);
     }
-  }, [currentWeight]);
+  }, [actualCurrentWeight]);
 
   // Auto-scroll raw data
   useEffect(() => {
@@ -120,6 +147,18 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
       rawDataRef.current.scrollTop = rawDataRef.current.scrollHeight;
     }
   }, [rawData]);
+
+  // Update protocol in scale config when it changes
+  useEffect(() => {
+    if (actualUpdateConfig) {
+      actualUpdateConfig({
+        protocol: selectedProtocol 
+      });
+    }
+    
+    // Add to raw data log
+    setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - 🔄 Protocolo alterado para ${selectedProtocol}`]);
+  }, [selectedProtocol, actualUpdateConfig]);
 
   // Check if config has changed
   useEffect(() => {
@@ -143,16 +182,6 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
     }
   }, [baudRate, dataBits, stopBits, parity, flowControl, port, autoReconnect, stableTimeout]);
 
-  // Update protocol in scale config when it changes
-  useEffect(() => {
-    updateConfig({
-      protocol: selectedProtocol
-    });
-    
-    // Add to raw data log
-    setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - 🔄 Protocolo alterado para ${selectedProtocol}`]);
-  }, [selectedProtocol, updateConfig]);
-
   // Save configuration
   const saveConfig = () => {
     try {
@@ -170,16 +199,18 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
       localStorage.setItem('scale_config', JSON.stringify(config));
       
       // Update the scale configuration
-      updateConfig({
-        baudRate,
-        protocol: selectedProtocol,
-        dataBits,
-        stopBits,
-        parity,
-        flowControl,
-        reconnectInterval: autoReconnect ? 3000 : 0,
-        stableWeightTimeout: stableTimeout
-      });
+      if (actualUpdateConfig) {
+        actualUpdateConfig({
+          baudRate,
+          protocol: selectedProtocol,
+          dataBits,
+          stopBits,
+          parity,
+          flowControl,
+          reconnectInterval: autoReconnect ? 3000 : 0,
+          stableWeightTimeout: stableTimeout
+        });
+      }
       
       setConfigChanged(false);
       setSavedConfig(true);
@@ -196,18 +227,18 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
   const testConnection = async () => {
     setTestingConnection(true);
     try {
-      if (connection.isConnected) {
-        await disconnect();
+      if (actualConnection.isConnected) {
+        await actualDisconnect();
         if (onDisconnect) onDisconnect();
       }
       
       setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - 🔌 Tentando conectar à balança...`]);
-      const success = await connect();
+      const success = await actualConnect();
       if (success) {
         setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - ✅ Conexão estabelecida com sucesso!`]);
         if (onConnect) onConnect();
       } else {
-        setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - ❌ Falha ao conectar: ${lastError || 'Erro desconhecido'}`]);
+        setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - ❌ Falha ao conectar: ${actualLastError || 'Erro desconhecido'}`]);
       }
     } catch (error) {
       console.error('Erro ao testar conexão:', error);
@@ -222,7 +253,7 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
     setReadingStableWeight(true);
     try {
       setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - ⏳ Aguardando peso estável...`]);
-      const weight = await requestStableWeight();
+      const weight = await actualRequestStableWeight();
       if (weight !== null) {
         setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - ✅ Peso estável: ${(weight * 1000).toFixed(0)}g`]);
       } else {
@@ -240,23 +271,27 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
   const handleSimulateWeight = () => {
     const weight = parseInt(manualWeight);
     if (!isNaN(weight) && weight >= 0) {
-      simulateWeight(weight);
-      setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - 🔄 Peso simulado: ${weight}g`]);
+      if (actualSimulateWeight) {
+        actualSimulateWeight(weight);
+      }
+      setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - 🔄 Simulando peso: ${weight}g`]);
     }
   };
 
   // Detect available ports (mock function)
   const detectPorts = () => {
     // In a real implementation, this would use navigator.serial.getPorts()
-    listAvailablePorts().then(ports => {
-      setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - 🔍 Buscando portas disponíveis...`]);
-      if (ports.length > 0) {
-        setShowPortSelection(true);
-        setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - ✅ ${ports.length} portas encontradas: ${ports.join(', ')}`]);
-      } else {
-        setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - ⚠️ Nenhuma porta encontrada. Verifique se a balança está conectada.`]);
-      }
-    });
+    if (actualListAvailablePorts) {
+      actualListAvailablePorts().then(ports => {
+        setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - 🔍 Buscando portas disponíveis...`]);
+        if (ports.length > 0) {
+          setShowPortSelection(true);
+          setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - ✅ ${ports.length} portas encontradas: ${ports.join(', ')}`]);
+        } else {
+          setRawData(prev => [...prev, `${new Date().toLocaleTimeString()} - ⚠️ Nenhuma porta encontrada. Verifique se a balança está conectada.`]);
+        }
+      });
+    }
   };
 
   return (
@@ -276,8 +311,8 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
             <button
               onClick={() => {
                 // Don't disconnect when closing if keepConnectionOnClose is true
-                if (!keepConnectionOnClose && connection.isConnected) {
-                  disconnect().then(() => {
+                if (!keepConnectionOnClose && actualConnection.isConnected) {
+                  actualDisconnect?.().then(() => {
                     if (onDisconnect) onDisconnect();
                   });
                 }
@@ -410,7 +445,7 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
                       className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                     >
                       <option value="">Selecionar porta</option>
-                      {availablePorts.map(p => (
+                      {actualAvailablePorts.map(p => (
                         <option key={p} value={p}>{p}</option>
                       ))}
                     </select>
@@ -487,47 +522,47 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
 
             {/* Connection Status */}
             <div className={`rounded-lg p-4 border ${
-              connection.isConnected 
+              actualConnection.isConnected 
                 ? 'bg-green-50 border-green-200' 
                 : 'bg-red-50 border-red-200'
             }`}>
               <h3 className={`text-lg font-medium mb-2 flex items-center gap-2 ${
-                connection.isConnected ? 'text-green-800' : 'text-red-800'
+                actualConnection.isConnected ? 'text-green-800' : 'text-red-800'
               }`}>
                 <div className={`w-3 h-3 rounded-full ${
-                  connection.isConnected ? 'bg-green-500' : 'bg-red-500'
+                  actualConnection.isConnected ? 'bg-green-500' : 'bg-red-500'
                 }`}></div>
                 Status da Balança
               </h3>
               
               <div className="space-y-2">
-                <p className={connection.isConnected ? 'text-green-700' : 'text-red-700'}>
-                  {connection.isConnected 
+                <p className={actualConnection.isConnected ? 'text-green-700' : 'text-red-700'}>
+                  {actualConnection.isConnected 
                     ? 'Balança conectada' 
                     : 'Balança desconectada'
                   }
                 </p>
                 
-                {connection.isConnected && connection.port && (
+                {actualConnection.isConnected && actualConnection.port && (
                   <p className="text-sm text-green-600">
-                    Porta: {connection.port}
+                    Porta: {actualConnection.port}
                   </p>
                 )}
                 
-                {connection.isConnected && connection.model && (
+                {actualConnection.isConnected && actualConnection.model && (
                   <p className="text-sm text-green-600">
-                    Modelo: {connection.model}
+                    Modelo: {actualConnection.model}
                   </p>
                 )}
                 
-                {lastError && (
+                {actualLastError && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle size={14} />
-                    {lastError}
+                    {actualLastError}
                   </p>
                 )}
                 
-                {reconnecting && (
+                {actualReconnecting && (
                   <p className="text-sm text-yellow-600 flex items-center gap-1">
                     <RefreshCw size={14} className="animate-spin" />
                     Tentando reconectar...
@@ -554,10 +589,10 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
                   )}
                 </button>
                 
-                {connection.isConnected ? (
+                {actualConnection.isConnected ? (
                   <button
                     onClick={() => {
-                      disconnect().then(() => {
+                      actualDisconnect?.().then(() => {
                         if (onDisconnect) onDisconnect();
                       });
                     }}
@@ -568,7 +603,7 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
                 ) : (
                   <button
                     onClick={() => {
-                      connect().then(success => {
+                      actualConnect?.().then(success => {
                         if (success && onConnect) onConnect();
                       });
                     }}
@@ -618,30 +653,30 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
               
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
                 <div className="text-4xl font-bold mb-2 font-mono">
-                  {currentWeight 
-                    ? `${(currentWeight.weight * 1000).toFixed(0)}g`
+                  {actualCurrentWeight 
+                    ? `${(actualCurrentWeight.weight * 1000).toFixed(0)}g`
                     : '---'
                   }
                 </div>
                 
                 <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
-                  currentWeight?.stable
+                  actualCurrentWeight?.stable
                     ? 'bg-green-100 text-green-800'
                     : 'bg-yellow-100 text-yellow-800'
                 }`}>
-                  {currentWeight?.stable 
+                  {actualCurrentWeight?.stable 
                     ? <Check size={14} />
                     : <AlertCircle size={14} />
                   }
-                  {currentWeight?.stable 
+                  {actualCurrentWeight?.stable 
                     ? 'Peso Estável'
-                    : currentWeight ? 'Peso Instável' : 'Sem Leitura'
+                    : actualCurrentWeight ? 'Peso Instável' : 'Sem Leitura'
                   }
                 </div>
                 
-                {currentWeight && (
+                {actualCurrentWeight && (
                   <p className="text-sm text-gray-500 mt-2">
-                    Última atualização: {currentWeight.timestamp.toLocaleTimeString()}
+                    Última atualização: {actualCurrentWeight.timestamp.toLocaleTimeString()}
                   </p>
                 )}
               </div>
@@ -649,7 +684,7 @@ const ScaleConfigPanel: React.FC<ScaleConfigPanelProps> = ({
               <div className="mt-4">
                 <button
                   onClick={readStableWeight}
-                  disabled={!connection.isConnected || readingStableWeight}
+                  disabled={!actualConnection.isConnected || readingStableWeight}
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                 >
                   {readingStableWeight ? (

@@ -29,8 +29,21 @@ const PermissionGuard: React.FC<PermissionGuardProps> = ({
   }
   const isDevelopment = process.env.NODE_ENV === 'development';
   
+  // Check if user is admin in multiple ways
+  let isAdmin = false;
+  try {
+    const storedOperator = localStorage.getItem('pdv_operator');
+    if (storedOperator) {
+      const operator = JSON.parse(storedOperator);
+      isAdmin = operator.code?.toUpperCase() === 'ADMIN' || 
+                operator.name?.toUpperCase().includes('ADMIN');
+    }
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+  }
+  
   // Grant full access in development mode
-  if (hasPermission || isDevelopment) {
+  if (hasPermission || isDevelopment || isAdmin) {
     return <>{children}</>;
   }
 

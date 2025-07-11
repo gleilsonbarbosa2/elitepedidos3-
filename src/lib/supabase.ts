@@ -13,6 +13,15 @@ if (!supabaseUrl || !supabaseAnonKey ||
   console.warn('⚠️ Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file')
 }
 
+// Check if environment variables are available
+if (!supabaseUrl || !supabaseAnonKey || 
+    supabaseUrl === 'your_supabase_url_here' || 
+    supabaseAnonKey === 'your_supabase_anon_key_here') {
+  console.warn('⚠️ Supabase environment variables are missing or contain placeholder values')
+  console.warn('⚠️ Some features requiring database access will not work')
+  console.warn('⚠️ Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file')
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -35,6 +44,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // Test connection on initialization
 const testConnection = async () => {
+  // Skip test if environment variables are not set
+  if (!supabaseUrl || !supabaseAnonKey || 
+      supabaseUrl === 'your_supabase_url_here' || 
+      supabaseAnonKey === 'your_supabase_anon_key_here') {
+    console.warn('⚠️ Skipping Supabase connection test due to missing or invalid credentials')
+    return
+  }
+
   // Skip test if environment variables are not set
   if (!supabaseUrl || !supabaseAnonKey || 
       supabaseUrl === 'your_supabase_url_here' || 

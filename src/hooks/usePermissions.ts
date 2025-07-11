@@ -53,7 +53,12 @@ export const usePermissions = (operator?: PDVOperator | null) => {
   const hasPermission = useCallback((permission: Permission): boolean => {
     // If no operator is provided, assume no permissions
     if (!operator) {
-      return true; // Grant full permissions when no operator is provided (admin mode)
+      return true; // No operator provided - assume admin mode with full access
+    }
+    
+    // Admin user always has full permissions
+    if (operator.code?.toUpperCase() === 'ADMIN' || operator.name?.toUpperCase().includes('ADMIN')) {
+      return true;
     }
     
     // Check if the permission exists in the operator's permissions
@@ -66,12 +71,12 @@ export const usePermissions = (operator?: PDVOperator | null) => {
       can_view_sales: true,
       can_view_cash_register: true,
       can_view_products: true,
-      can_view_orders: true,
+      can_view_orders: false,
       can_view_reports: true,
       can_view_sales_report: true,
       can_view_cash_report: true,
-      can_view_attendance: true,
-      can_view_operators: operator.code?.toUpperCase() === 'ADMIN' ? true : false
+      can_view_attendance: false,
+      can_view_operators: false
     };
     
     return defaultPermissions[permission] || false;
@@ -79,11 +84,19 @@ export const usePermissions = (operator?: PDVOperator | null) => {
 
   // Check if user has any of the specified permissions
   const hasAnyPermission = useCallback((...permissionList: Permission[]): boolean => {
+    // Admin user always has all permissions
+    if (!operator || operator.code?.toUpperCase() === 'ADMIN' || operator.name?.toUpperCase().includes('ADMIN')) {
+      return true;
+    }
     return permissionList.some(permission => hasPermission(permission));
   }, [hasPermission]);
 
   // Check if user has all of the specified permissions
   const hasAllPermissions = useCallback((...permissionList: Permission[]): boolean => {
+    // Admin user always has all permissions
+    if (!operator || operator.code?.toUpperCase() === 'ADMIN' || operator.name?.toUpperCase().includes('ADMIN')) {
+      return true;
+    }
     return permissionList.every(permission => hasPermission(permission));
   }, [hasPermission]);
 

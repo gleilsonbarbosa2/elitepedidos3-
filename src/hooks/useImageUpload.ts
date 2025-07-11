@@ -289,7 +289,7 @@ export const useImageUpload = () => {
       if (!supabase) {
         return null;
       }
-
+      
       // Query with improved error handling and shorter timeout
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('Timeout')), 2000);

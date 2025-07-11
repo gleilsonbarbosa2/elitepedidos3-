@@ -83,7 +83,7 @@ interface PDVMainProps {
 
 const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
   const [activeScreen, setActiveScreen] = useState<'attendance' | 'products' | 'reports' | 'settings' | 'operators' | 'cash_register' | 'sales_report' | 'cash_report' | 'orders' | 'cash_menu' | 'daily_cash_report' | 'cash_report_details'>('attendance');
-  const { hasPermission } = usePermissions(operator);
+  const { hasPermission } = usePermissions();
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
     main: true,
     reports: true,
@@ -199,6 +199,11 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
       playFallbackSound();
     }
   };
+
+  const permissionMap = {
+    'pdv': 'can_view_attendance',
+    'orders': 'can_view_orders'
+  };
   
   // Método alternativo para tocar som
   const playFallbackSound = () => {
@@ -269,6 +274,12 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
   useEffect(() => {
     if (!operator) {
       // If no operator provided, show all menu items (admin mode)
+      setFilteredMenuCategories(menuCategories);
+      return;
+    }
+
+    // Admin user always sees all menu items
+    if (operator.code?.toUpperCase() === 'ADMIN') {
       setFilteredMenuCategories(menuCategories);
       return;
     }
@@ -448,7 +459,11 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
                       
                       const permissionNeeded = menuPermissionMap[item.id];
                       // Always show all menu items when no operator is provided (admin mode)
-                      const hasMenuPermission = !operator || !permissionNeeded || hasPermission(permissionNeeded as any);
+                      // Or when the operator is ADMIN
+                      const hasMenuPermission = !operator || 
+                                               operator.code?.toUpperCase() === 'ADMIN' || 
+                                               operator.name?.toUpperCase().includes('ADMIN') || 
+                                               !permissionNeeded || hasPermission(permissionNeeded as any);
 
                       // Skip rendering this menu item if user doesn't have permission
                       if (!hasMenuPermission) return null;
