@@ -184,7 +184,7 @@ export const useOrders = () => {
       playBellSound();
       
       // Tocar novamente após 300ms
-      setTimeout(() => {
+      window.setTimeout(() => {
         playBellSound();
       }, 300);
     } catch (error) {
@@ -294,6 +294,12 @@ export const useOrderChat = (orderId: string) => {
   ) => {
     try {
       console.log('📤 Enviando mensagem:', message, 'tipo:', senderType);
+      
+      if (!message.trim()) {
+        console.warn('Tentativa de enviar mensagem vazia');
+        return null;
+      }
+      
       const { data, error } = await supabase
         .from('chat_messages')
         .insert([{
@@ -311,17 +317,21 @@ export const useOrderChat = (orderId: string) => {
       if (error) throw error;
       console.log('✅ Mensagem enviada com sucesso');
 
-      // Criar notificação para nova mensagem
-      await supabase
-        .from('notifications')
-        .insert([{
-          order_id: orderId,
-          type: 'new_message',
-          title: 'Nova Mensagem',
-          message: `Nova mensagem de ${senderName}`,
-          read: false,
-          created_at: new Date().toISOString()
-        }]);
+      try {
+        // Criar notificação para nova mensagem
+        await supabase
+          .from('notifications')
+          .insert([{
+            order_id: orderId,
+            type: 'new_message',
+            title: 'Nova Mensagem',
+            message: `Nova mensagem de ${senderName}`,
+            read: false,
+            created_at: new Date().toISOString()
+          }]);
+      } catch (notifError) {
+        console.warn('Erro ao criar notificação (não crítico):', notifError);
+      }
 
       // Tocar som se solicitado
       if (options?.playSound) {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tag, Clock, Calendar } from 'lucide-react';
-import { isQuintaElite } from '../../utils/availability';
+import { isQuintaElite, getTodaySpecialMessage } from '../../utils/availability';
 
 const PromotionsAIResponse: React.FC = () => {
   const today = new Date();
@@ -11,13 +11,13 @@ const PromotionsAIResponse: React.FC = () => {
     <div className="bg-gradient-to-r from-purple-50 to-green-50 p-4 rounded-xl shadow-sm border border-purple-100 text-sm text-gray-800 leading-relaxed space-y-3">
       <div className="flex items-center gap-2 mb-2">
         <Tag className="text-purple-600" size={18} />
-        <h3 className="font-bold text-purple-800">Promoções Ativas Hoje!</h3>
+        <h3 className="font-bold text-purple-800">{isQuintaEliteDay ? '⚡ QUINTA ELITE ⚡' : 'Promoções Ativas Hoje!'}</h3>
       </div>
       
       {isQuintaEliteDay ? (
         <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
           <p className="font-bold text-yellow-800 flex items-center gap-1 mb-2">
-            <span className="text-yellow-500">⚡</span> QUINTA ELITE <span className="text-yellow-500">⚡</span>
+            <span className="text-yellow-500">🔥</span> {getTodaySpecialMessage()} <span className="text-yellow-500">🔥</span>
           </p>
           <ul className="space-y-2">
             <li className="flex items-start gap-2">

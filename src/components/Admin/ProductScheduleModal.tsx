@@ -35,11 +35,11 @@ const ProductScheduleModal: React.FC<ProductScheduleModalProps> = ({
   });
 
   const dayLabels = {
-    monday: 'Segunda-feira',
-    tuesday: 'Terça-feira',
-    wednesday: 'Quarta-feira',
-    thursday: 'Quinta-feira',
-    friday: 'Sexta-feira',
+    monday: 'Segunda',
+    tuesday: 'Terça',
+    wednesday: 'Quarta',
+    thursday: 'Quinta',
+    friday: 'Sexta',
     saturday: 'Sábado',
     sunday: 'Domingo'
   };
@@ -110,6 +110,21 @@ const ProductScheduleModal: React.FC<ProductScheduleModalProps> = ({
         friday: false,
         saturday: true,
         sunday: true
+      }
+    }));
+  };
+
+  const handleSelectThursday = () => {
+    setScheduledDays(prev => ({
+      ...prev,
+      days: {
+        monday: false,
+        tuesday: false,
+        wednesday: false,
+        thursday: true,
+        friday: false,
+        saturday: false,
+        sunday: false
       }
     }));
   };
@@ -265,6 +280,13 @@ const ProductScheduleModal: React.FC<ProductScheduleModalProps> = ({
                     className="px-3 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors text-sm"
                   >
                     Fins de semana
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSelectThursday}
+                    className="px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-sm"
+                  >
+                    Quinta Elite
                   </button>
                   <button
                     type="button"

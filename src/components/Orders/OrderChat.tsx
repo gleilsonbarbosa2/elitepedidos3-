@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useOrderChat } from '../../hooks/useOrders';
 import { Send, MessageCircle, Volume2, VolumeX, AlertCircle } from 'lucide-react';
+import { ChatMessage } from '../../types/order';
 
 interface OrderChatProps {
   orderId: string;
@@ -19,20 +20,34 @@ const OrderChat: React.FC<OrderChatProps> = ({
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [messageError, setMessageError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   const { messages, loading, sendMessage, lastFetch, refreshMessages, playMessageSound } = useOrderChat(orderId);
 
   // Carregar configuração de som
   useEffect(() => {
+    // Initialize audio element
+    audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/1862/1862-preview.mp3");
+    
     try {
       const soundSettings = localStorage.getItem('chatSoundSettings');
       if (soundSettings) {
         const settings = JSON.parse(soundSettings);
         setSoundEnabled(settings.enabled);
+        if (audioRef.current) {
+          audioRef.current.volume = settings.volume || 0.5;
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar configurações de som:', error);
     }
+    
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
   }, []);
 
   // Salvar configuração de som
@@ -93,25 +108,22 @@ const OrderChat: React.FC<OrderChatProps> = ({
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newMessage.trim()) return;
+    const messageText = newMessage.trim();
+    if (!messageText) return;
+    
     setMessageError(null);
+    setNewMessage(''); // Clear input immediately for better UX
     
     try {
-      await sendMessage({
-        sender_name: senderName,
-        sender_type: isAttendant ? 'attendant' : 'customer',
-        message: newMessage,
-        playSound: false
-      });
-      
-      setNewMessage('');
-      setMessageError(null);
+      console.log('Sending message:', messageText);
+      await sendMessage(messageText, isAttendant ? 'attendant' : 'customer', senderName);
       
       try {
         if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-          audioRef.current.play().catch(e => {
+          const audio = audioRef.current;
+          audio.pause();
+          audio.currentTime = 0;
+          audio.play().catch(e => {
             console.error('Erro ao tocar som:', e);
             // Tentar tocar usando Web Audio API como fallback
             playMessageSoundFallback();
@@ -170,20 +182,12 @@ const OrderChat: React.FC<OrderChatProps> = ({
     <div className="bg-gray-50 rounded-lg border border-gray-200 flex flex-col h-[500px]">
       {/* Chat Header */}
       <div className="p-3 bg-white border-b border-gray-200">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <MessageCircle size={18} className="text-purple-600" />
-            <div className="flex-1">
-              <h4 className="font-medium text-gray-800">
-                Chat do Pedido #{orderId.slice(-8)}
-              </h4>
-              <div className="flex items-center gap-2 text-xs">
-                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <span className="text-gray-500">
-                  {isOnline ? 'Online' : 'Offline'} • Última atualização: {lastFetch.toLocaleTimeString('pt-BR')}
-                </span>
-              </div>
-            </div>
+            <h4 className="font-medium text-gray-800">
+              Chat do Pedido #{orderId.slice(-8)}
+            </h4>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -204,10 +208,16 @@ const OrderChat: React.FC<OrderChatProps> = ({
             </button>
           </div>
         </div>
+          <div className="flex items-center gap-2 text-xs">
+            <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className="text-gray-500">
+              {isOnline ? 'Online' : 'Offline'} • Última atualização: {lastFetch.toLocaleTimeString('pt-BR')}
+            </span>
+          </div>
       </div>
 
       {/* Messages */}
-      <div className="h-64 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 text-sm py-8">
             <MessageCircle size={32} className="mx-auto text-gray-300 mb-2" />
@@ -287,29 +297,33 @@ const OrderChat: React.FC<OrderChatProps> = ({
       <div className="p-3 bg-white border-t border-gray-200">
         {isAttendant && (
           <div className="mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Seu nome:
+            </label>
             <input
               type="text"
               value={senderName}
               onChange={(e) => setSenderName(e.target.value)}
-              placeholder="Seu nome"
+              placeholder="Digite seu nome"
               className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
         )}
         
-        <form onSubmit={handleSendMessage} className="flex gap-2">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder={isOnline ? "Digite sua mensagem..." : "Sem conexão..."}
-            className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+            className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
             disabled={!isOnline}
+            autoFocus
           />
           <button
             type="submit"
             disabled={!newMessage.trim() || !isOnline}
-            className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white p-2 rounded-lg transition-colors"
+            className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white p-3 rounded-lg transition-colors flex-shrink-0"
             title={!isOnline ? 'Sem conexão' : 'Enviar mensagem'}
           >
             <Send size={18} />

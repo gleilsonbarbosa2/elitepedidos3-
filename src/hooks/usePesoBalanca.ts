@@ -27,10 +27,10 @@ export function usePesoBalanca() {
       return;
     }
     
-    const intervalo = setInterval(() => {
+    const intervalo = window.setInterval(() => {
       // Use AbortController to timeout the request
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1000); // 1000ms timeout
+      const timeoutId = window.setTimeout(() => controller.abort(), 1000); // 1000ms timeout
       
       try {
         if (!scaleUrl) {
@@ -88,7 +88,7 @@ export function usePesoBalanca() {
           setPaused(true);
           
           // Resume after 30 seconds
-          setTimeout(() => {
+          window.setTimeout(() => {
             console.log('🔄 Resuming scale connection attempts');
             setPaused(false);
             setErrorCount(0);

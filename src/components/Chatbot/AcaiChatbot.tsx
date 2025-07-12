@@ -1,11 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle, X, Minus, Send, Bot, User } from 'lucide-react';
+import { findIntent, getInitialGreeting } from './intents';
+import { saveUnknownQuery, shouldSaveAsUnknown, addTagToQuery } from './unknowns';
+import PromotionsAIResponse from './PromotionsAIResponse';
 
+// Define message interface
 interface Message {
   id: string;
   text: string;
   sender: 'user' | 'bot';
   timestamp: Date;
+}
+
+// Define order state interface
+interface OrderState {
+  stage: 'initial' | 'delivery_info' | 'product_selection' | 'complements' | 'payment' | 'confirmation' | 'complete';
+  deliveryType?: 'delivery' | 'pickup';
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  selectedProducts: Array<{
+    name: string;
+    price: number;
+    quantity: number;
+    complements?: string[];
+  }>;
+  paymentMethod?: 'money' | 'pix' | 'card';
+  total: number;
 }
 
 const AcaiChatbot: React.FC = () => {
@@ -15,6 +36,14 @@ const AcaiChatbot: React.FC = () => {
   const [input, setInput] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [messagesCount, setMessagesCount] = useState<number>(0);
+  const [orderState, setOrderState] = useState<OrderState>({
+    stage: 'initial',
+    selectedProducts: [],
+    total: 0
+  });
+  const [showPromotions, setShowPromotions] = useState(false);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   // Load customer phone from localStorage
   useEffect(() => {
@@ -24,128 +53,198 @@ const AcaiChatbot: React.FC = () => {
     }
   }, []);
 
-  const getInitialGreeting = () => {
-    const hour = new Date().getHours();
-    let greeting = '';
-    
-    if (hour < 12) {
-      greeting = 'Bom dia! ☀️';
-    } else if (hour < 18) {
-      greeting = 'Boa tarde! 🌤️';
-    } else {
-      greeting = 'Boa noite! 🌙';
-    }
-    
-    return `${greeting} Bem-vindo(a) ao Elite Açaí! 🍧\n\nEu sou a assistente virtual e estou aqui para ajudar você! Posso te ajudar com:\n\n🛒 Fazer um pedido\n📦 Acompanhar seu pedido\n📋 Ver nosso cardápio\n💰 Informações sobre promoções\n📍 Horários e localização\n\nO que você gostaria de fazer hoje?`;
-  };
+  // Update messages count when messages change
+  useEffect(() => {
+    setMessagesCount(messages.length);
+  }, [messages]);
 
-  const simulateOrderLookup = (orderInput: string) => {
-    // Simulate order lookup - in production, this would query the actual database
-    const mockOrders = [
-      { id: 'abc12345', status: 'preparing', customer: 'João Silva' },
-      { id: 'def67890', status: 'ready_for_pickup', customer: 'Maria Santos' },
-      { id: 'ghi11111', status: 'out_for_delivery', customer: 'Pedro Costa' },
-      { id: 'jkl22222', status: 'delivered', customer: 'Ana Oliveira' }
-    ];
-
-    // Try to find order by ID (full or last 8 characters) or customer name
-    const order = mockOrders.find(o => 
-      o.id === orderInput.toLowerCase() ||
-      o.id.slice(-8) === orderInput.toLowerCase() ||
-      o.customer.toLowerCase().includes(orderInput.toLowerCase())
-    );
-
-    return order;
-  };
-
-  const getOrderStatusMessage = (status: string) => {
-    switch (status) {
-      case 'preparing':
-      case 'confirmed':
-        return "🍧 Seu pedido ainda está em preparo e será enviado em breve. Obrigado pela paciência! 🙌";
-      case 'ready_for_pickup':
-        return "🚴 Seu pedido já está pronto e o entregador sairá em instantes!";
-      case 'out_for_delivery':
-        return "📦 O entregador já está a caminho com seu pedido! Em breve você estará saboreando nosso açaí! 😋";
-      case 'delivered':
-        return "✅ Seu pedido foi entregue! Esperamos que tenha gostado! Qualquer dúvida ou sugestão, estamos por aqui. 💜";
-      default:
-        return "❌ Não encontramos um pedido com esse número/nome. Pode verificar se está correto ou nos enviar outro dado?";
-    }
-  };
-
+  // Improved response generation function
   const generateResponse = (userMessage: string): string => {
-    const message = userMessage.toLowerCase();
+    const normalizedMessage = userMessage.toLowerCase().trim();
+    const matchedIntent = findIntent(normalizedMessage);
+
+    // Se estiver em um processo de pedido, usar fluxo de pedido
+    if (orderState.stage !== 'initial' && orderState.stage !== 'complete') {
+      return processOrderStage(userMessage);
+    }
+
+    // Se a intent for fallback (não reconhecida)
+    if (matchedIntent.id === 'fallback') {
+      const context = messages.slice(-3).map(m => `${m.sender}: ${m.text}`).join('\n');
+      saveUnknownQuery(userMessage, context);
+
+      return "Essa informação ainda não está disponível, mas vou anotar para melhorar meu atendimento! 📝\n\nPosso te ajudar com informações sobre nosso cardápio, promoções, horários ou formas de pagamento. O que você gostaria de saber?";
+    }
+
+    // Caso a intenção seja válida, mas queira salvar para análise futura (score baixo, opcional)
+    const matchScore = matchedIntent.keywords?.reduce((acc, kw) => {
+      return normalizedMessage.includes(kw) ? acc + kw.length : acc;
+    }, 0) || 0;
+
+    if (shouldSaveAsUnknown(userMessage, matchedIntent.id, matchScore, 0.15)) {
+      const context = messages.slice(-3).map(m => `${m.sender}: ${m.text}`).join('\n');
+      saveUnknownQuery(userMessage, context);
+    }
+
+    // Ações especiais por ID de intent
+    switch (matchedIntent.id) {
+      case 'promotions':
+        window.setTimeout(() => setShowPromotions(true), 300);
+        break;
+      case 'new_order':
+        setOrderState({
+          ...orderState,
+          stage: 'delivery_info'
+        });
+        return "Vamos iniciar seu pedido! 😊\n\nVocê quer receber em casa (delivery) ou retirar em uma de nossas lojas?";
+      default:
+        break;
+    }
+
+    // Retorna a resposta da intent (texto ou função)
+    return typeof matchedIntent.response === 'function'
+      ? matchedIntent.response()
+      : matchedIntent.response;
+  };
+  
+  // Process order based on current stage
+  const processOrderStage = (userInput: string): string => {
+    const input = userInput.toLowerCase().trim();
     
-    // Check for order tracking intent
-    if (message.includes('acompanhar pedido') || 
-        message.includes('onde está meu pedido') ||
-        message.includes('meu pedido já saiu') ||
-        message.includes('status do pedido') ||
-        message.includes('cadê meu pedido') ||
-        message.includes('rastrear pedido')) {
-      return "Para que eu possa verificar, por favor, me informe o número do seu pedido ou o nome completo utilizado na compra.";
+    switch (orderState.stage) {
+      case 'delivery_info':
+        // Determine delivery type
+        if (input.includes('casa') || input.includes('delivery') || input.includes('entreg')) {
+          setOrderState({
+            ...orderState,
+            deliveryType: 'delivery',
+            stage: 'delivery_info'
+          });
+          
+          return "Beleza! Me informe:\n\n📍 Endereço de entrega:\n👤 Nome:\n📞 Telefone:";
+        } else if (input.includes('retir') || input.includes('loja') || input.includes('buscar')) {
+          setOrderState({
+            ...orderState,
+            deliveryType: 'pickup',
+            stage: 'delivery_info'
+          });
+          
+          return "Ótimo! Em qual loja você deseja retirar?\n\n🏡 Loja 1: Rua Dois, 2130‑A – Residencial 1 – Cágado\n🏡 Loja 2: Rua Um, 1614‑C – Residencial 1 – Cágado";
+        } else if (input.includes('rua') || input.includes('avenida') || input.includes('av.')) {
+          // User is providing address directly
+          setOrderState({
+            ...orderState,
+            deliveryType: 'delivery',
+            customerAddress: userInput,
+            stage: 'product_selection'
+          });
+          
+          return "Endereço anotado! Agora escolha uma categoria: Açaí, Combos, Milkshakes, Vitaminas...";
+        } else {
+          // Ask again for delivery type
+          return "Por favor, me informe se você quer receber em casa (delivery) ou retirar em uma de nossas lojas.";
+        }
+        
+      case 'product_selection':
+        // Handle product selection
+        if (input.includes('açaí') || input.includes('acai')) {
+          return "Você escolheu Açaí! Temos vários tamanhos:\n\n• 300g - R$ 13,99\n• 400g - R$ 18,99\n• 500g - R$ 22,99\n• 700g - R$ 31,99\n\nQual tamanho você prefere?";
+        } else if (input.includes('combo')) {
+          return "Você escolheu Combos! Nossas opções:\n\n• Combo Casal (1kg + Milkshake) - R$ 49,99\n• Combo 4 (900g) - R$ 42,99\n\nQual combo você prefere?";
+        } else if (input.includes('milk') || input.includes('shake')) {
+          return "Você escolheu Milkshake! Temos:\n\n• 400ml - R$ 11,99\n• 500ml - R$ 12,99\n\nQual tamanho e sabor você prefere?";
+        } else if (input.includes('300') || input.includes('400') || input.includes('500') || input.includes('700')) {
+          // User selected a size
+          let size = '';
+          let price = 0;
+          
+          if (input.includes('300')) { size = '300g'; price = 13.99; }
+          else if (input.includes('400')) { size = '400g'; price = 18.99; }
+          else if (input.includes('500')) { size = '500g'; price = 22.99; }
+          else if (input.includes('700')) { size = '700g'; price = 31.99; }
+          
+          setOrderState({
+            ...orderState,
+            selectedProducts: [...orderState.selectedProducts, {
+              name: `Açaí ${size}`,
+              price: price,
+              quantity: 1
+            }],
+            total: orderState.total + price,
+            stage: 'complements'
+          });
+          
+          return `Você escolheu Açaí ${size}. Deseja adicionar complementos grátis?\n\n• 2 cremes (nutella, ninho, morango, etc)\n• 3 mix (granola, leite em pó, paçoca, etc)`;
+        } else {
+          return "Por favor, escolha uma categoria: Açaí, Combos, Milkshakes, Vitaminas...";
+        }
+        
+      case 'complements':
+        // Process complements selection
+        setOrderState({
+          ...orderState,
+          stage: 'payment'
+        });
+        
+        return `Pedido anotado! O total é ${formatPrice(orderState.total)}.\n\nQual a forma de pagamento?\n• Dinheiro\n• PIX\n• Cartão`;
+        
+      case 'payment':
+        // Process payment method
+        let paymentMethod: 'money' | 'pix' | 'card' = 'money';
+        
+        if (input.includes('pix')) {
+          paymentMethod = 'pix';
+        } else if (input.includes('cartão') || input.includes('cartao') || input.includes('card')) {
+          paymentMethod = 'card';
+        }
+        
+        setOrderState({
+          ...orderState,
+          paymentMethod,
+          stage: 'confirmation'
+        });
+        
+        let paymentDetails = '';
+        if (paymentMethod === 'pix') {
+          paymentDetails = "\n\n📱 **DADOS PIX:**\nChave: 85989041010\nNome: Grupo Elite";
+        } else if (paymentMethod === 'money') {
+          paymentDetails = "\n\nPrecisa de troco? Me informe para quanto.";
+        }
+        
+        return `Você escolheu pagar com ${paymentMethod === 'money' ? 'dinheiro' : paymentMethod === 'pix' ? 'PIX' : 'cartão'}.${paymentDetails}\n\nConfirma o pedido?`;
+        
+      case 'confirmation':
+        // Confirm order
+        if (input.includes('sim') || input.includes('confirmo') || input.includes('ok')) {
+          setOrderState({
+            ...orderState,
+            stage: 'complete'
+          });
+          
+          return "🎉 Pedido enviado com sucesso! Obrigado pela preferência!\n\nEm breve você receberá uma confirmação pelo WhatsApp. Qualquer dúvida estou à disposição! 💜";
+        } else if (input.includes('não') || input.includes('nao') || input.includes('cancelar')) {
+          setOrderState({
+            stage: 'initial',
+            selectedProducts: [],
+            total: 0
+          });
+          
+          return "Pedido cancelado. Se quiser fazer um novo pedido ou tiver outras dúvidas, estou à disposição! 😊";
+        } else {
+          return "Por favor, confirme se deseja finalizar o pedido digitando 'sim' ou 'não'.";
+        }
+        
+      default:
+        return "Desculpe, não entendi. Vamos recomeçar o pedido? Por favor, me diga se você quer delivery ou retirada na loja.";
     }
-
-    // Check if user is providing order information (looks like order ID or name)
-    if (message.length >= 3 && (
-        /^[a-f0-9]{8,}$/i.test(message) || // Looks like order ID
-        /^[a-zA-ZÀ-ÿ\s]{3,}$/.test(message) // Looks like a name
-    )) {
-      const order = simulateOrderLookup(message);
-      if (order) {
-        return getOrderStatusMessage(order.status);
-      } else {
-        return "❌ Não encontramos um pedido com esse número/nome. Pode verificar se está correto ou nos enviar outro dado?";
-      }
-    }
-
-    // Check for new order intent
-    if (message.includes('fazer pedido') || 
-        message.includes('pedir açaí') ||
-        message.includes('começar pedido') ||
-        message.includes('cardápio') ||
-        message.includes('o que vocês têm')) {
-      return "Olá! Que ótimo que você quer fazer um pedido! 😊\n\nPara fazer seu pedido, você pode:\n\n🌐 Acessar nosso site de delivery\n📱 Usar nosso WhatsApp: (85) 98904-1010\n🏪 Vir até nossa loja\n\nNossos principais produtos:\n🍧 Açaí tradicional (P, M, G)\n🍨 Sorvetes artesanais\n🥤 Bebidas geladas\n🍓 Vitaminas naturais\n\nQual opção prefere para fazer seu pedido?";
-    }
-
-    // Greeting responses
-    if (message.includes('oi') || message.includes('olá') || message.includes('boa')) {
-      return getInitialGreeting();
-    }
-
-    // Menu/cardápio
-    if (message.includes('cardápio') || message.includes('menu') || message.includes('produtos')) {
-      return "🍧 **NOSSO CARDÁPIO** 🍧\n\n**AÇAÍ TRADICIONAL:**\n• Pequeno (300ml) - R$ 8,90\n• Médio (500ml) - R$ 12,90\n• Grande (700ml) - R$ 16,90\n\n**ADICIONAIS:**\n• Frutas: banana, morango, kiwi\n• Granola, aveia, castanhas\n• Leite condensado, mel\n\n**BEBIDAS:**\n• Vitaminas naturais - R$ 7,90\n• Sucos - R$ 5,90\n• Água de coco - R$ 4,90\n\nQuer fazer um pedido? 😊";
-    }
-
-    // Hours/horários
-    if (message.includes('horário') || message.includes('funciona') || message.includes('aberto')) {
-      return "🕐 **NOSSOS HORÁRIOS:**\n\n📅 Segunda a Sexta: 10h às 22h\n📅 Sábado: 9h às 23h\n📅 Domingo: 14h às 22h\n\n📍 **LOCALIZAÇÃO:**\nRua das Frutas, 123 - Centro\nFortaleza/CE\n\n📞 **CONTATO:**\n(85) 98904-1010";
-    }
-
-    // Delivery/entrega
-    if (message.includes('entrega') || message.includes('delivery') || message.includes('entregar')) {
-      return "🚴 **DELIVERY DISPONÍVEL!**\n\n📦 Taxa de entrega: R$ 5,00\n⏰ Tempo médio: 35-50 minutos\n💰 Pedido mínimo: R$ 15,00\n\n📍 Atendemos toda a região central de Fortaleza!\n\nPara fazer seu pedido:\n📱 WhatsApp: (85) 98904-1010\n🌐 Site: [link do delivery]\n\nQuer fazer um pedido agora? 😊";
-    }
-
-    // Payment/pagamento
-    if (message.includes('pagamento') || message.includes('pagar') || message.includes('cartão') || message.includes('pix')) {
-      return "💳 **FORMAS DE PAGAMENTO:**\n\n✅ Dinheiro\n✅ PIX\n✅ Cartão de Crédito\n✅ Cartão de Débito\n✅ Vale Refeição\n\n💡 **PROMOÇÃO PIX:**\nPagando no PIX, ganhe 5% de desconto!\n\nQuer fazer um pedido? 😊";
-    }
-
-    // Promotions/promoções
-    if (message.includes('promoção') || message.includes('desconto') || message.includes('oferta')) {
-      return "🎉 **PROMOÇÕES ATIVAS:**\n\n💰 **PIX:** 5% de desconto\n🍧 **Combo Família:** 2 açaís G + 2 bebidas = R$ 35,90\n📱 **Primeira compra:** 10% OFF\n🎂 **Aniversariante:** Açaí grátis no seu dia!\n\n⏰ Promoções válidas até o final do mês!\n\nQuer aproveitar alguma promoção? 😊";
-    }
-
-    // Thanks/obrigado
-    if (message.includes('obrigad') || message.includes('valeu') || message.includes('brigad')) {
-      return "😊 Por nada! Fico feliz em ajudar!\n\nSe precisar de mais alguma coisa, é só chamar! Estamos sempre aqui para você! 💜\n\n🍧 Elite Açaí - O melhor açaí da cidade! 🍧";
-    }
-
-    // Default response
-    return "Posso ajudar com informações sobre nosso cardápio, promoções, formas de pagamento ou entrega. Se quiser fazer um pedido, é só me dizer o que você gostaria!";
+  };
+  
+  // Helper function to format price
+  const formatPrice = (price: number): string => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(price);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -164,12 +263,19 @@ const AcaiChatbot: React.FC = () => {
     setIsOpen(!isOpen);
     setIsMinimized(false);
     
-    // Add greeting only when user opens chat
+    // Reset order state when opening/closing chat
+    setOrderState({
+      stage: 'initial',
+      selectedProducts: [],
+      total: 0
+    });
+    
+    // Add greeting only when user opens chat for the first time
     if (!isOpen && messages.length === 0) {
       const initialGreeting = getInitialGreeting();
       setMessages([
         {
-          id: Date.now().toString(),
+          id: `bot-greeting-${Date.now()}`,
           text: initialGreeting,
           sender: 'bot',
           timestamp: new Date()
@@ -182,22 +288,14 @@ const AcaiChatbot: React.FC = () => {
     setIsMinimized(!isMinimized);
   };
 
-  const simulatePostDeliveryFeedback = () => {
-    const feedbackMessage: Message = {
-      id: Date.now().toString(),
-      text: "Olá! Tudo bem? Notei que você recebeu seu pedido recentemente. Foi bem atendido hoje? Gostaria de compartilhar sua experiência conosco?",
-      sender: 'bot',
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, feedbackMessage]);
-  };
-
   const handleSendMessage = () => {
     if (!input.trim()) return;
 
+    // Limpar promoções quando o usuário envia uma nova mensagem
+    setShowPromotions(false);
+    
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `user-${Date.now()}`,
       text: input,
       sender: 'user',
       timestamp: new Date()
@@ -207,20 +305,41 @@ const AcaiChatbot: React.FC = () => {
     setInput('');
     setIsTyping(true);
 
-    // Simulate bot typing delay
-    setTimeout(() => {
+    // Simulate bot typing delay with variable time based on message length
+    const typingDelay = Math.min(800 + Math.random() * 800, 2000);
+    window.setTimeout(() => {
       const botResponse = generateResponse(input);
       const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `bot-${Date.now()}`,
         text: botResponse,
         sender: 'bot',
         timestamp: new Date()
       };
 
+      // Se a mensagem do usuário contém palavras relacionadas a promoções, mostrar o componente
+      if (input.toLowerCase().includes('promoção') || 
+          input.toLowerCase().includes('promocao') || 
+          input.toLowerCase().includes('desconto') || 
+          input.toLowerCase().includes('oferta')) {
+        window.setTimeout(() => setShowPromotions(true), 300);
+      }
+
       setMessages(prev => [...prev, botMessage]);
       setIsTyping(false);
-    }, 1000 + Math.random() * 1000);
+    }, typingDelay);
   };
+  
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    
+    // Debug para verificar o estado atual
+    console.log('Estado atual do chatbot:', {
+      messages: messages.length,
+      showPromotions,
+      orderState
+    });
+  }, [messages]);
 
   if (!isOpen) {
     return (
@@ -269,11 +388,8 @@ const AcaiChatbot: React.FC = () => {
           {/* Messages */}
           <div className="h-64 overflow-y-auto p-4 space-y-3">
             {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`flex items-start gap-2 max-w-[80%] ${
+              <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`flex items-start gap-2 max-w-[85%] ${
                   message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
                 }`}>
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
@@ -293,6 +409,17 @@ const AcaiChatbot: React.FC = () => {
                 </div>
               </div>
             ))}
+            
+            {/* Show promotions component when triggered */}
+            {showPromotions && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%]">
+                  <PromotionsAIResponse />
+                </div>
+              </div>
+            )}
+            
+            <div ref={messagesEndRef} />
             
             {isTyping && (
               <div className="flex justify-start">
@@ -318,19 +445,34 @@ const AcaiChatbot: React.FC = () => {
               <input
                 type="text"
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  // Clear any error state that might prevent responses
+                  if (isTyping) {
+                    setIsTyping(false);
+                  }
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder="Digite sua mensagem..."
                 className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
               />
-              <button
+              <button 
                 onClick={handleSendMessage}
-                disabled={!input.trim()}
-                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white p-2 rounded-lg transition-colors"
+                disabled={!input.trim() || isTyping}
+                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white p-2 rounded-lg transition-colors flex items-center justify-center"
               >
                 <Send size={16} />
               </button>
             </div>
+            {orderState.stage !== 'initial' && orderState.stage !== 'complete' && (
+              <div className="mt-2 text-xs text-gray-500">
+                {orderState.stage === 'delivery_info' && "Informando dados de entrega..."}
+                {orderState.stage === 'product_selection' && "Escolhendo produtos..."}
+                {orderState.stage === 'complements' && "Selecionando complementos..."}
+                {orderState.stage === 'payment' && "Informando pagamento..."}
+                {orderState.stage === 'confirmation' && "Confirmando pedido..."}
+              </div>
+            )}
           </div>
         </>
       )}

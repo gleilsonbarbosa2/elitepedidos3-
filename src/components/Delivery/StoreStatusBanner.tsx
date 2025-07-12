@@ -1,13 +1,13 @@
 import React from 'react';
 import { useStoreHours } from '../../hooks/useStoreHours';
-import { Clock, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 
 const StoreStatusBanner: React.FC = () => {
   const { getStoreStatus, loading, refreshData } = useStoreHours();
 
   if (loading) {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 animate-pulse">
         <div className="flex items-center gap-3">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400"></div>
           <div>
@@ -24,23 +24,7 @@ const StoreStatusBanner: React.FC = () => {
   const handleRefresh = async () => {
     try {
       await refreshData();
-      
-      // Mostrar feedback visual
-      const refreshMessage = document.createElement('div');
-      refreshMessage.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2';
-      refreshMessage.innerHTML = `
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-        </svg>
-        Status atualizado!
-      `;
-      document.body.appendChild(refreshMessage);
-      
-      setTimeout(() => {
-        if (document.body.contains(refreshMessage)) {
-          document.body.removeChild(refreshMessage);
-        }
-      }, 2000);
+      console.log('✅ Status da loja atualizado');
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
     }

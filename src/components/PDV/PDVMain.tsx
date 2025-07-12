@@ -49,7 +49,7 @@ const menuCategories = [
     icon: Settings,
     items: [
       { id: 'operators' as const, label: 'Operadores', icon: Users, color: 'bg-orange-500' },
-      { id: 'settings' as const, label: 'Configurações', icon: Settings, color: 'bg-gray-500' }
+      { id: 'settings' as const, label: 'Configurações', icon: Settings, color: 'bg-gray-500' },
     ]
   }
 ];

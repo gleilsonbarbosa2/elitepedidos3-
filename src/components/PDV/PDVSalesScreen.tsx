@@ -6,6 +6,7 @@ import { useScale } from '../../hooks/useScale';
 import { PDVProduct } from '../../types/pdv';
 import { usePesoBalanca } from '../../hooks/usePesoBalanca';
 import { usePDVCashRegister } from '../../hooks/usePDVCashRegister';
+import { useWeightFromScale } from '../../hooks/useWeightFromScale';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import ScaleTestPanel from './ScaleTestPanel';
 import ScaleWeightModal from './ScaleWeightModal';
@@ -35,6 +36,7 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
   const [showScaleTest, setShowScaleTest] = useState(false);
   // State to force refresh of scale connection status
   const [scaleStatusKey, setScaleStatusKey] = useState(0);
+  const { fetchWeight, loading: weightLoading } = useWeightFromScale();
   const [payments, setPayments] = useState<Array<{type: string, amount: number}>>([]);
   const [currentPaymentAmount, setCurrentPaymentAmount] = useState<number>(0);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -159,7 +161,8 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
       
       if (!supabaseUrl || !supabaseKey || 
           supabaseUrl === 'your_supabase_url_here' || 
-          supabaseKey === 'your_supabase_anon_key_here') {
+          supabaseKey === 'your_supabase_anon_key_here' ||
+          supabaseUrl.includes('placeholder')) {
         console.info('ℹ️ Supabase não configurado. Usando imagens padrão dos produtos.');
         console.info('   Para habilitar imagens personalizadas:');
         console.info('   1. Configure suas credenciais do Supabase no arquivo .env');
@@ -171,19 +174,20 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
         console.log('🖼️ Carregando imagens personalizadas dos produtos...');
         
         // Load images in smaller batches with better error handling
-        const batchSize = 3;
+        const batchSize = 2;
         const imageMap: Record<string, string> = {};
         let successCount = 0;
         let errorCount = 0;
+        let networkErrorCount = 0;
         
         for (let i = 0; i < products.length; i += batchSize) {
           const batch = products.slice(i, i + batchSize);
           
           const imagePromises = batch.map(async (product) => {
             try {
-              // Add timeout to individual image requests
-              const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Image load timeout')), 3000);
+              // Add timeout to individual image requests with better error handling
+              const timeoutPromise = new Promise<string | null>((_, reject) => {
+                setTimeout(() => reject(new Error('Individual image timeout')), 4000);
               });
               
               const imagePromise = getProductImage(product.id);
@@ -197,13 +201,16 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
               }
             } catch (error) {
               errorCount++;
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+              
               if (error instanceof Error) {
-                if (error.message === 'Image load timeout') {
+                if (errorMessage.includes('timeout')) {
                   console.warn(`⏱️ Timeout ao carregar imagem do produto ${product.id}`);
-                } else if (error.message.includes('Failed to fetch')) {
+                } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('fetch')) {
+                  networkErrorCount++;
                   console.warn(`🌐 Falha na conexão ao carregar imagem do produto ${product.id}`);
                 } else {
-                  console.warn(`⚠️ Erro ao carregar imagem do produto ${product.id}:`, error.message);
+                  console.warn(`⚠️ Erro ao carregar imagem do produto ${product.id}:`, errorMessage);
                 }
               }
               return { productId: product.id, imageUrl: null, success: false };
@@ -230,9 +237,9 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
             errorCount += batch.length;
           }
           
-          // Longer delay between batches to reduce server load
+          // Longer delay between batches to reduce server load and avoid rate limiting
           if (i + batchSize < products.length) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 800));
           }
         }
         
@@ -244,22 +251,39 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
         }
         
         if (errorCount > 0) {
-          console.info(`ℹ️ ${errorCount} imagens falharam ao carregar (usando imagens padrão para estes produtos)`);
+          if (networkErrorCount > 0) {
+            console.info(`ℹ️ ${networkErrorCount} imagens falharam por problemas de rede (usando imagens padrão)`);
+            console.info('   💡 Verifique sua conexão com a internet e configurações do Supabase');
+          }
+          if (errorCount - networkErrorCount > 0) {
+            console.info(`ℹ️ ${errorCount - networkErrorCount} outras imagens falharam ao carregar`);
+          }
         }
         
         if (loadedCount === 0 && errorCount === 0) {
           console.info('ℹ️ Nenhuma imagem personalizada encontrada. Usando imagens padrão.');
         }
       } catch (error) {
-        console.warn('⚠️ Erro geral ao carregar imagens personalizadas:', error instanceof Error ? error.message : 'Erro desconhecido');
-        console.info('ℹ️ Continuando com imagens padrão dos produtos.');
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
         
-        // Provide helpful error context without being intrusive
-        if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        if (errorMessage.includes('Failed to fetch') || errorMessage.includes('fetch')) {
+          console.warn('🌐 Problema de conectividade com o Supabase detectado');
+          console.info('ℹ️ Usando imagens padrão dos produtos. Verifique:');
+          console.info('   • Sua conexão com a internet');
+          console.info('   • Se as credenciais do Supabase estão corretas');
+          console.info('   • Se o projeto Supabase está ativo');
+        } else {
+          console.warn('⚠️ Erro geral ao carregar imagens personalizadas:', errorMessage);
+          console.info('ℹ️ Continuando com imagens padrão dos produtos.');
+        }
+        
+        // Provide helpful error context for network issues
+        if (error instanceof TypeError && errorMessage.includes('Failed to fetch')) {
           console.info('   💡 Dicas para resolver problemas de conexão:');
           console.info('   • Verifique sua conexão com a internet');
           console.info('   • Confirme se as credenciais do Supabase estão corretas no arquivo .env');
           console.info('   • Verifique se o projeto Supabase está ativo e acessível');
+          console.info('   • Aguarde alguns segundos e recarregue a página');
         }
       }
     };
@@ -269,7 +293,7 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
       // Debounce the image loading to avoid multiple rapid calls
       const timeoutId = setTimeout(() => {
         loadProductImages();
-      }, 100);
+      }, 200);
       
       return () => clearTimeout(timeoutId);
     }
@@ -278,16 +302,9 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
   // Adicionar produto ao carrinho
   const handleAddProduct = async (product: PDVProduct) => {
     if (product.is_weighable) {
-      // Para produtos pesáveis, selecionar o produto e mostrar mensagem para o usuário
-      setSelectedWeighableProduct(product);
-      
-      if (balancaConectada) {
-        // Se a balança estiver conectada, mostrar mensagem para confirmar o peso
-        alert(`Produto pesável selecionado: ${product.name}\nClique em "Usar Peso" para adicionar ao carrinho com o peso atual.`);
-      } else {
-        // Se a balança não estiver conectada, abrir modal de pesagem manual
-        setShowScaleWeightModal(true);
-      }
+      // Para produtos pesáveis, tentar ler o peso da balança
+      setSelectedWeighableProduct(product);      
+      setShowScaleWeightModal(true);
     } else {
       addItem(product, 1);
     }
@@ -296,8 +313,15 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
   // Handler for weight confirmation from modal
   const handleWeightConfirm = (weight: number) => {
     if (selectedWeighableProduct && weight > 0) {
-      // Convert grams to kg for storage
-      addItem(selectedWeighableProduct, 1, weight / 1000);
+      // weight is already in grams, convert to kg for storage
+      const pesoEmKg = weight / 1000;
+      const precoPorKg = selectedWeighableProduct.price_per_gram ? selectedWeighableProduct.price_per_gram * 1000 : 44.99;
+      
+      // Adicionar ao carrinho
+      addItem(selectedWeighableProduct, 1, pesoEmKg);
+      
+      // Mostrar confirmação
+      console.log(`Produto adicionado: ${selectedWeighableProduct.name}\nPeso: ${pesoEmKg.toFixed(3)}kg\nValor: ${formatPrice(pesoEmKg * precoPorKg)}`);
       setSelectedWeighableProduct(null);
     }
   };
@@ -609,9 +633,10 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
                   <button
                     onClick={() => handleAddProduct(product)}
                     className="w-full py-2 text-center font-medium transition-all duration-200 bg-blue-500 hover:bg-blue-600 text-white hover:shadow-md"
+                    disabled={product.is_weighable && weightLoading}
                   >
                     <Plus size={16} className="inline-block mr-1" />
-                    {product.is_weighable ? 'Pesar' : 'Adicionar'}
+                    {product.is_weighable ? (weightLoading ? 'Pesando...' : 'Pesar') : 'Adicionar'}
                   </button>
                 </div>
               ))}

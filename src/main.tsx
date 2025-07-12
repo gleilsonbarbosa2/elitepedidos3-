@@ -8,7 +8,15 @@ window.addEventListener('error', (event) => {
   console.error('Global error caught:', event.error);
 });
 
-createRoot(document.getElementById('root')!).render(
+const rootElement = document.getElementById('root');
+
+if (!rootElement) {
+  console.error('Root element not found! Check if the HTML has a div with id="root"');
+} else {
+  console.log('Root element found, rendering app...');
+}
+
+createRoot(rootElement!).render(
   <StrictMode>
     <App />
   </StrictMode>

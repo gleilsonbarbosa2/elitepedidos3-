@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, Star, ArrowRight } from 'lucide-react';
+import { ShoppingBag, Star, ArrowRight, Gift } from 'lucide-react';
 
 interface Recommendation {
   productId: string;
@@ -29,7 +29,7 @@ const RecommendationDisplay: React.FC<RecommendationProps> = ({
   return (
     <div className="bg-gradient-to-r from-purple-50 to-green-50 p-4 rounded-xl shadow-sm border border-purple-100 text-sm text-gray-800 leading-relaxed space-y-3">
       <div className="flex items-center gap-2 mb-2">
-        <Star className="text-purple-600" size={18} />
+        <Gift className="text-purple-600" size={18} />
         <h3 className="font-bold text-purple-800">{title}</h3>
       </div>
       
