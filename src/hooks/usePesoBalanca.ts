@@ -6,7 +6,7 @@ export function usePesoBalanca() {
                        window.location.hostname.includes('staticblitz');
   const scaleUrl = isStackBlitz 
     ? null // Don't even try to connect in StackBlitz
-    : (import.meta.env.VITE_BALANCA_URL || 'http://localhost:3333/peso');
+    : (import.meta.env.VITE_BALANCA_URL || 'http://localhost:4000/peso');
   
   // Check if we're in development mode or if the scale service is likely unavailable
   const isDevMode = process.env.NODE_ENV === 'development' || 
