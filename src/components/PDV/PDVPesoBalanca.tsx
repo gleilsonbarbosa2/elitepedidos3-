@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePesoBalanca } from '../../hooks/usePesoBalanca';
-import { Scale, WifiOff, RefreshCw, Check, Wifi, AlertTriangle, Code, Weight } from 'lucide-react';
+import { Scale, RefreshCw, Check, Wifi, Weight } from 'lucide-react';
 
 interface PDVPesoBalancaProps {
   onPesoSelecionado?: (peso: string) => void;
@@ -55,10 +55,10 @@ const PDVPesoBalanca: React.FC<PDVPesoBalancaProps> = ({ onPesoSelecionado, forc
           {conectado ? (
             <Wifi size={18} className="text-green-600" />
           ) : (
-            <WifiOff size={18} className="text-red-600" />
+            <Wifi size={18} className="text-gray-400" />
           )}
           <span className="font-medium text-sm">
-            {conectado ? 'Balança Conectada' : 'Balança Desconectada'}
+            {conectado ? 'Balança Conectada' : 'Sem Leitura'}
           </span>
         </div>
         
@@ -81,26 +81,6 @@ const PDVPesoBalanca: React.FC<PDVPesoBalancaProps> = ({ onPesoSelecionado, forc
           </button>
         )}
         
-        {!conectado && (
-          <span className="ml-2 text-xs text-red-600 flex items-center gap-1">
-            {isStackBlitz ? (
-              <>
-                <Code size={12} />
-                Balança não disponível no StackBlitz
-              </>
-            ) : isDevMode ? (
-              <>
-                <AlertTriangle size={12} />
-                Modo de desenvolvimento - balança simulada
-              </>
-            ) : (
-              <>
-                <AlertTriangle size={12} />
-                Serviço de balança não disponível
-              </>
-            )}
-          </span>
-        )}
       </div>
       
       {conectado && onPesoSelecionado && (

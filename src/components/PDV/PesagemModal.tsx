@@ -1,14 +1,18 @@
 import { useState } from "react";
 import { useWeightFromScale } from "../../hooks/useWeightFromScale";
 
-export function PesagemModal({ produto, onConfirmar }: { produto: any, onConfirmar: (pesoGramas: number) => void }) {
+export function PesagemModal({ produto, onConfirmar, useDirectScale = false }: { 
+  produto: any, 
+  onConfirmar: (pesoGramas: number) => void,
+  useDirectScale?: boolean 
+}) {
   const [pesoManual, setPesoManual] = useState<number>(0);
   const { fetchWeight, loading } = useWeightFromScale();
 
   const usarBalanca = async () => {
     const peso = await fetchWeight();
     if (peso === null || isNaN(peso) || peso <= 0) {
-      alert("❌ Balança não disponível. Por favor, use o modo manual.");
+      alert("Não foi possível obter o peso. Verifique se o produto está posicionado corretamente na balança.");
       return;
     }
     const pesoGramas = Math.round(peso * 1000);
@@ -26,6 +30,7 @@ export function PesagemModal({ produto, onConfirmar }: { produto: any, onConfirm
           onClick={usarBalanca}
           disabled={loading}
           className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center justify-center gap-2 w-full"
+          title="Ler peso da balança"
         >
           {loading ? (
             <>
@@ -51,7 +56,7 @@ export function PesagemModal({ produto, onConfirmar }: { produto: any, onConfirm
           placeholder="Peso em gramas"
           className="border px-2 py-1 rounded w-full"
         />
-
+        
         <div className="flex gap-2 flex-wrap text-sm">
           {[100, 200, 300, 400, 500, 1000].map((g) => (
             <button
@@ -67,6 +72,7 @@ export function PesagemModal({ produto, onConfirmar }: { produto: any, onConfirm
         <button
           onClick={() => onConfirmar(pesoManual)}
           className="bg-blue-600 text-white px-4 py-2 rounded mt-3"
+          title="Confirmar peso manual"
         >
           Confirmar Peso
         </button>

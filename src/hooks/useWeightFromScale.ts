@@ -38,7 +38,7 @@ export function useWeightFromScale() {
         const agora = Date.now();
         const dif = agora - tempo;
 
-        if (dif < 4000) {
+        if (dif < 10000) { // Aumentado para 10 segundos para permitir mais tempo para leitura
           const peso = pesagem.peso;
           console.log("✅ Peso válido:", peso);
           
@@ -61,7 +61,7 @@ export function useWeightFromScale() {
           
           return peso;
         } else {
-          console.log("⏱️ Peso expirado (mais de 4s).");
+          console.log("⏱️ Peso expirado (mais de 10s).");
           return null;
         }
       } else {

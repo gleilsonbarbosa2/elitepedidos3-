@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Scale, X, Check, AlertCircle, RefreshCw, Loader2, ArrowRight } from 'lucide-react';
 import { WeightReading } from '../../types/pdv';
 import { PesagemModal } from './PesagemModal';
+import { useWeightFromScale } from '../../hooks/useWeightFromScale';
 
 interface ScaleWeightModalProps {
   isOpen: boolean;
@@ -27,9 +28,9 @@ const ScaleWeightModal: React.FC<ScaleWeightModalProps> = ({
   const [manualWeight, setManualWeight] = useState<string>('');
   const [isRequestingWeight, setIsRequestingWeight] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Default to manual mode if scale is not connected
   const [weightHistory, setWeightHistory] = useState<WeightReading[]>([]);
   const [weightAttempts, setWeightAttempts] = useState(0);
+  const { fetchWeight } = useWeightFromScale();
 
   useEffect(() => {
     if (isOpen) {
@@ -52,51 +53,6 @@ const ScaleWeightModal: React.FC<ScaleWeightModalProps> = ({
       });
     }
   }, [currentWeight, isOpen]);
-
-  const handleRequestWeight = async () => {
-    if (!isScaleConnected) {
-      setError('Balança não conectada. Por favor, use o modo manual.');
-      setWeightMode('manual');
-      return;
-    }
-
-    setIsRequestingWeight(true);
-    setError(null);
-    setWeightAttempts(prev => prev + 1);
-
-    try {
-      // Fall back to the built-in scale reading if API fails
-      const weight = await requestStableWeight();
-      if (weight !== null) {
-        onWeightConfirm(weight * 1000); // Convert kg to g
-        onClose();
-      } else {
-        // Mensagem de erro mais detalhada com sugestões
-        if (weightAttempts >= 2) {
-          setError('Não foi possível obter um peso estável após várias tentativas. Verifique se o produto está corretamente posicionado na balança ou use o modo manual.');
-        } else {
-          setError('Não foi possível obter um peso estável. Verifique se o produto está corretamente posicionado na balança e tente novamente.');
-        }
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      setError(`Erro ao ler peso da balança: ${errorMessage}. Tente novamente ou use o modo manual.`);
-      console.error('Error requesting weight:', err);
-    } finally {
-      setIsRequestingWeight(false);
-    }
-  };
-
-  const handleManualWeightSubmit = () => {
-    const weight = parseFloat(manualWeight);
-    if (isNaN(weight) || weight <= 0) {
-      setError('Por favor, digite um valor válido maior que zero.');
-      return;
-    }
-    
-    onWeightConfirm(weight);
-    onClose();
-  };
 
   if (!isOpen) return null;
 
@@ -129,8 +85,12 @@ const ScaleWeightModal: React.FC<ScaleWeightModalProps> = ({
           {/* Mode Selection */}
           <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
             <PesagemModal 
-              produto={productName ? { nome: productName } : { nome: "Produto pesável" }}
-              onConfirmar={onWeightConfirm}
+              produto={productName ? { nome: productName } : { nome: "Produto pesável" }} 
+              onConfirmar={(peso) => {
+                onWeightConfirm(peso);
+                onClose();
+              }}
+              useDirectScale={true}
             />
           </div>
         </div>
