@@ -7,13 +7,13 @@ export function PesagemModal({ produto, onConfirmar }: { produto: any, onConfirm
 
   const usarBalanca = async () => {
     const peso = await fetchWeight();
-    if (typeof peso !== "number" || isNaN(peso) || peso <= 0) {
-      alert("❌ Peso inválido ou não detectado pela balança. Tente novamente ou use o modo manual.");
+    if (peso === null || isNaN(peso) || peso <= 0) {
+      alert("❌ Balança não disponível. Por favor, use o modo manual.");
       return;
     }
     const pesoGramas = Math.round(peso * 1000);
     setPesoManual(pesoGramas);
-    console.log(`✅ Peso lido: ${pesoGramas}g`);
+    console.log("✅ Peso lido:", pesoGramas, "g");
   };
 
   return (
