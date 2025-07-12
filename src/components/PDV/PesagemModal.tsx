@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useWeightFromScale } from "../../hooks/useWeightFromScale";
+import { useEffect } from "react";
 
 export function PesagemModal({ produto, onConfirmar, useDirectScale = false }: { 
   produto: any, 
@@ -7,12 +8,33 @@ export function PesagemModal({ produto, onConfirmar, useDirectScale = false }: {
   useDirectScale?: boolean 
 }) {
   const [pesoManual, setPesoManual] = useState<number>(0);
+  const [tentativas, setTentativas] = useState<number>(0);
   const { fetchWeight, loading } = useWeightFromScale();
+  
+  // Tentar ler o peso automaticamente quando o modal abrir
+  useEffect(() => {
+    // Pequeno delay para dar tempo da balança se estabilizar
+    const timer = setTimeout(() => {
+      usarBalanca();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   const usarBalanca = async () => {
+    setTentativas(prev => prev + 1);
+    console.log(`🔄 Tentativa ${tentativas + 1} de leitura da balança`);
+    
     const peso = await fetchWeight();
     if (peso === null || isNaN(peso) || peso <= 0) {
-      alert("Não foi possível obter o peso. Verifique se o produto está posicionado corretamente na balança.");
+      // Se for a primeira tentativa, tenta novamente automaticamente
+      if (tentativas === 0) {
+        console.log("⚠️ Primeira tentativa falhou, tentando novamente...");
+        setTimeout(() => usarBalanca(), 800);
+      } else {
+        console.log("❌ Não foi possível obter o peso após múltiplas tentativas");
+        alert("Não foi possível obter o peso. Verifique se o produto está posicionado corretamente na balança.");
+      }
       return;
     }
     const pesoGramas = Math.round(peso * 1000);
@@ -46,6 +68,17 @@ export function PesagemModal({ produto, onConfirmar, useDirectScale = false }: {
             </>
           )}
         </button>
+
+        {pesoManual > 0 && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 my-2">
+            <p className="text-green-700 font-medium flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Peso lido: {pesoManual}g
+            </p>
+          </div>
+        )}
 
         <p className="text-sm text-gray-500">Ou insira o peso manualmente:</p>
 
