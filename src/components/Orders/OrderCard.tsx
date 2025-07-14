@@ -1,4 +1,4 @@
-// OrderCard.tsx - COMPLETO com melhorias visuais
+// OrderCard.tsx - COMPLETO com detalhes visíveis
 
 import React, { useState } from 'react';
 import { Order, OrderStatus } from '../../types/order';
@@ -69,7 +69,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
   return (
     <>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {/* Header */}
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
@@ -88,7 +87,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
             <OrderStatusBadge status={order.status} />
           </div>
 
-          {/* Customer Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
             <div className="flex items-center gap-2">
               <User size={16} className="text-gray-400" />
@@ -113,7 +111,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
             </div>
           </div>
 
-          {/* Total */}
           <div className="mt-3 pt-3 border-t border-gray-100">
             <div className="flex items-center justify-between">
               <span className="text-lg font-bold text-green-600">
@@ -123,7 +120,6 @@ const OrderCard: React.FC<OrderCardProps> = ({
                 <button
                   onClick={() => setShowPrintView(true)}
                   className="flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm"
-                  title="Imprimir pedido"
                 >
                   <Printer size={16} className="flex-shrink-0" />
                   Imprimir
@@ -154,6 +150,76 @@ const OrderCard: React.FC<OrderCardProps> = ({
             </div>
           </div>
         </div>
+
+        {isExpanded && (
+          <div className="p-4 border-b border-gray-100">
+            <h4 className="font-medium text-gray-800 mb-3">Itens do Pedido:</h4>
+            <div className="space-y-3">
+              {order.items.map((item, index) => (
+                <div key={index} className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={item.product_image}
+                      alt={item.product_name}
+                      className="w-12 h-12 object-cover rounded-lg"
+                    />
+                    <div className="flex-1">
+                      <h5 className="font-medium text-gray-800">{item.product_name}</h5>
+                      {item.selected_size && (
+                        <p className="text-sm text-gray-600">{item.selected_size}</p>
+                      )}
+                      {item.complements.length > 0 && (
+                        <div className="mt-1">
+                          <p className="text-xs font-medium text-gray-700">Complementos:</p>
+                          <div className="text-xs text-gray-600">
+                            {item.complements.map((comp, idx) => (
+                              <span key={idx}>
+                                • {comp.name}
+                                {comp.price > 0 && ` (+${formatPrice(comp.price)})`}
+                                {idx < item.complements.length - 1 && ', '}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {item.observations && (
+                        <p className="text-sm text-gray-500 italic mt-1">
+                          Obs: {item.observations}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-sm text-gray-600">
+                          Qtd: {item.quantity}x
+                        </span>
+                        <span className="font-medium text-purple-600">
+                          {formatPrice(item.total_price)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {showChat && (
+          <div className="border-t border-gray-100 mt-4">
+            <OrderChat 
+              orderId={order.id} 
+              customerName={order.customer_name}
+              isAttendant={isAttendant}
+            />
+          </div>
+        )}
+
+        {showPrintView && (
+          <OrderPrintView 
+            order={order} 
+            storeSettings={storeSettings}
+            onClose={() => setShowPrintView(false)} 
+          />
+        )}
       </div>
     </>
   );
