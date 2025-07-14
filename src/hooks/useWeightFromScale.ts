@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
 
-// Armazenar o último peso lido em cache para evitar múltiplas consultas
+// Armazenar o último peso lido em cache e o último peso confirmado
 let lastWeightCache = {
   weight: null as number | null,
-  timestamp: 0
+  timestamp: 0,
+  lastConfirmedWeight: null as number | null,
+  lastConfirmedTimestamp: 0
 };
 
 /**
@@ -12,7 +14,7 @@ let lastWeightCache = {
  * Requer uma tabela pesagem_temp com campos id, peso e criado_em
  */
 export function useWeightFromScale() {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);  
 
   const fetchWeight = async (): Promise<number | null> => {
     setLoading(true);
@@ -21,7 +23,7 @@ export function useWeightFromScale() {
       const now = Date.now();
       if (lastWeightCache.weight !== null && (now - lastWeightCache.timestamp) < 5000) {
         console.log("✅ Usando peso em cache:", lastWeightCache.weight);
-        return lastWeightCache.weight;
+        return lastWeightCache.weight; 
       }
       
       // Check if we're in a restricted environment (like StackBlitz)
@@ -74,7 +76,7 @@ export function useWeightFromScale() {
         const agora = Date.now();
         const dif = agora - tempo;
 
-        if (dif < 10000) { // Aumentado para 10 segundos para permitir mais tempo para leitura
+        if (dif < 15000) { // Aumentado para 15 segundos para permitir mais tempo para leitura
           const peso = pesagem.peso;
           console.log("✅ Peso válido:", peso);
           
@@ -127,5 +129,25 @@ export function useWeightFromScale() {
     }
   };
 
-  return { fetchWeight, loading };
+  // Função para registrar um peso como confirmado
+  const confirmWeight = (weight: number): void => {
+    if (weight > 0) {
+      lastWeightCache.lastConfirmedWeight = weight;
+      lastWeightCache.lastConfirmedTimestamp = Date.now();
+      console.log("✅ Peso confirmado e registrado:", weight);
+    }
+  };
+
+  // Função para verificar se o peso atual é igual ao último confirmado
+  const isWeightDuplicate = (weight: number): boolean => {
+    // Se não houver peso confirmado anterior, não é duplicado
+    if (lastWeightCache.lastConfirmedWeight === null) return false;
+    
+    // Verifica se o peso é o mesmo (com tolerância de 0.001 para arredondamentos)
+    const isSameWeight = Math.abs(weight - lastWeightCache.lastConfirmedWeight) < 0.001;
+    
+    return isSameWeight;
+  };
+
+  return { fetchWeight, loading, confirmWeight, isWeightDuplicate };
 }

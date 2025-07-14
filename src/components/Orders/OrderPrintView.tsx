@@ -3,10 +3,11 @@ import { Order } from '../../types/order';
 
 interface OrderPrintViewProps {
   order: Order;
+  storeSettings?: any;
   onClose: () => void;
 }
 
-const OrderPrintView: React.FC<OrderPrintViewProps> = ({ order, onClose }) => {
+const OrderPrintView: React.FC<OrderPrintViewProps> = ({ order, storeSettings, onClose }) => {
   const [printerSettings, setPrinterSettings] = useState({
     paper_width: '80mm',
     page_size: 300,
@@ -485,7 +486,7 @@ const OrderPrintView: React.FC<OrderPrintViewProps> = ({ order, onClose }) => {
               </div>
 
               <div className="mt-2 pt-2 border-t border-gray-300 text-xs">
-                <div>Elite Açaí - CNPJ: 00.000.000/0001-00</div>
+                <div>Elite Açaí - CNPJ: {storeSettings?.cnpj || '00.000.000/0001-00'}</div>
                 <div>Impresso: {new Date().toLocaleString('pt-BR')}</div>
                 <div>Este não é um documento fiscal</div>
               </div>

@@ -12,6 +12,7 @@ export interface StoreSettings {
   id: string;
   store_name: string;
   phone: string;
+  cnpj?: string;
   address: string;
   delivery_fee: number;
   min_order_value: number;

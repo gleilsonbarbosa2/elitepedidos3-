@@ -45,6 +45,7 @@ const DeliveryPage: React.FC = () => {
     getTotalItems
   } = useCart();
 
+  const { storeSettings } = useStoreHours();
   const { getStoreStatus } = useStoreHours();
   const productScheduling = useProductScheduling();
   const { getRecommendations } = useRecommendations();
@@ -363,7 +364,7 @@ const DeliveryPage: React.FC = () => {
         </div>
       </section>
       
-      <Footer />
+      <Footer storeSettings={storeSettings} />
       
       {/* Botão Carrinho Flutuante */}
       {getTotalItems() > 0 && storeStatus.isOpen && (

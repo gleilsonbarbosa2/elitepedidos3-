@@ -14,16 +14,19 @@ import CashRegisterMenu from './PDV/CashRegisterMenu';
 import { usePermissions } from '../hooks/usePermissions';
 import { useScale } from '../hooks/useScale';
 import { useOrders } from '../hooks/useOrders';
+import { useStoreHours } from '../hooks/useStoreHours';
 import { PDVOperator } from '../types/pdv';
 
 interface UnifiedAttendancePanelProps {
   operator?: PDVOperator;
+  storeSettings?: any;
   scaleHook?: ReturnType<typeof useScale>;
 }
 
-const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator, scaleHook }) => {
+const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator, storeSettings, scaleHook }) => {
   const [activeTab, setActiveTab] = useState<'sales' | 'orders' | 'cash'>('sales');
   const { hasPermission } = usePermissions(operator);
+  const { storeSettings: localStoreSettings } = useStoreHours();
   const scale = useScale();
   const { orders } = useOrders();
   
@@ -32,6 +35,8 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
 
   // Check if user is admin
   const isAdmin = !operator || operator.code?.toUpperCase() === 'ADMIN';
+
+  const settings = storeSettings || localStoreSettings;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -107,9 +112,9 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
 
         {/* Content */}
         <div className="transition-all duration-300">
-          {activeTab === 'sales' && (isAdmin || hasPermission('can_view_sales')) && <PDVSalesScreen scaleHook={scaleHook || scale} />}
-          {activeTab === 'orders' && (isAdmin || hasPermission('can_view_orders')) && <AttendantPanel />}
-          {activeTab === 'cash' && (isAdmin || hasPermission('can_view_cash_register')) && <CashRegisterMenu />}
+          {activeTab === 'sales' && (isAdmin || hasPermission('can_view_sales')) && <PDVSalesScreen scaleHook={scaleHook || scale} storeSettings={settings} />}
+          {activeTab === 'orders' && (isAdmin || hasPermission('can_view_orders')) && <AttendantPanel storeSettings={settings} />}
+          {activeTab === 'cash' && (isAdmin || hasPermission('can_view_cash_register')) && <CashRegisterMenu storeSettings={settings} />}
         </div>
       </div>
     </div>

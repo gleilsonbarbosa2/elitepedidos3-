@@ -1,24 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart, Calculator, CreditCard, Printer, Trash2, Plus, Minus, Scale, AlertCircle, DollarSign, Percent, X, Save, Package, Tag, Receipt, Divide, Settings } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions';
 import { usePDVProducts, usePDVCart, usePDVSales } from '../../hooks/usePDV'; 
 import { useScale } from '../../hooks/useScale';
 import { PDVProduct } from '../../types/pdv';
-import { usePesoBalanca } from '../../hooks/usePesoBalanca';
 import { usePDVCashRegister } from '../../hooks/usePDVCashRegister';
 import { useWeightFromScale } from '../../hooks/useWeightFromScale';
 import { useImageUpload } from '../../hooks/useImageUpload';
-import ScaleTestPanel from './ScaleTestPanel';
 import ScaleWeightModal from './ScaleWeightModal';
-import PDVPesoBalanca from './PDVPesoBalanca';
 import { supabase } from '../../lib/supabase';
-import ScaleConfigPanel from './ScaleConfigPanel';
 
 interface PDVSalesScreenProps {
   scaleHook?: ReturnType<typeof useScale>;
+  storeSettings?: any;
 }
 
-const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
+const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook, storeSettings }) => {
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -29,14 +26,9 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
   const [showPayment, setShowPayment] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [splitPayment, setSplitPayment] = useState(false);
-  const [showScaleWeightModal, setShowScaleWeightModal] = useState(false);
   const [selectedWeighableProduct, setSelectedWeighableProduct] = useState<PDVProduct | null>(null);
-  // State for scale modal
-  const [showScaleConfig, setShowScaleConfig] = useState(false);
-  const [showScaleTest, setShowScaleTest] = useState(false);
-  // State to force refresh of scale connection status
-  const [scaleStatusKey, setScaleStatusKey] = useState(0);
-  const { fetchWeight, loading: weightLoading } = useWeightFromScale();
+  const [showScaleWeightModal, setShowScaleWeightModal] = useState(false);
+  const { fetchWeight, loading: weightLoading, confirmWeight } = useWeightFromScale();
   const [payments, setPayments] = useState<Array<{type: string, amount: number}>>([]);
   const [currentPaymentAmount, setCurrentPaymentAmount] = useState<number>(0);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -44,16 +36,6 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
   // Get permissions
   const { hasPermission } = usePermissions();
   
-  // Integração com balança Toledo via API REST (fallback)
-  // Wrap in try-catch to prevent errors from breaking the component
-  let pesoBalancaHook = { peso: 0, pesoFormatado: "0.000 Kg", conectado: false };
-  try {
-    pesoBalancaHook = usePesoBalanca();
-  } catch (error) {
-    console.warn('⚠️ Error using scale hook:', error);
-  }
-  const { conectado: balancaConectada } = pesoBalancaHook;
-
   // Carregar configurações de impressora
   const [printerSettings, setPrinterSettings] = useState({
     paper_width: '80mm',
@@ -84,20 +66,10 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
   const { products, loading: productsLoading, searchProducts } = usePDVProducts();
   const { isOpen: isCashRegisterOpen } = usePDVCashRegister();
   const { 
-    connection: scaleConnection,
     currentWeight,
     requestStableWeight,
-    connect: connectScale,
-    disconnect: disconnectScale,
-    startReading,
     isReading,
-    lastError,
-    reconnecting,
-    scaleConfig,
-    updateConfig,
     simulateWeight,
-    listAvailablePorts,
-    availablePorts
   } = scaleHook || useScale();
   
   const { 
@@ -317,6 +289,7 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
       const pesoEmKg = weight / 1000;
       const precoPorKg = selectedWeighableProduct.price_per_gram ? selectedWeighableProduct.price_per_gram * 1000 : 44.99;
       
+      confirmWeight(pesoEmKg);
       // Adicionar ao carrinho
       addItem(selectedWeighableProduct, 1, pesoEmKg);
       
@@ -499,7 +472,7 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
         <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Busca */}
-            <div className="flex-1 relative">
+            <div className="w-full relative">
               <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
@@ -508,35 +481,6 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
                 placeholder="Buscar produtos por nome ou código..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
               />
-            </div>
-
-            <div className="flex gap-2">
-              {/* Status da Balança Toledo */}
-              <PDVPesoBalanca
-                forceConnected={scaleConnection.isConnected}
-                onPesoSelecionado={(pesoBruto) => {
-                  // Se tiver um produto pesável selecionado, aplicar o peso
-                  if (selectedWeighableProduct) {
-                    const pesoNumerico = parseFloat(pesoBruto);
-                    if (!isNaN(pesoNumerico) && pesoNumerico > 0) {
-                      addItem(selectedWeighableProduct, 1, pesoNumerico);
-                      setSelectedWeighableProduct(null);
-                    }
-                  } else {
-                    // Se não tiver produto selecionado, mostrar mensagem
-                    alert('Selecione um produto pesável primeiro');
-                  }
-                }}
-              />
-              
-              {/* Botão de configuração da balança */}
-              <button
-                onClick={() => setShowScaleConfig(true)}
-                className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
-                title="Configurar balança"
-              >
-                <Settings size={20} />
-              </button>
             </div>
           </div>
         </div>
@@ -988,7 +932,7 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 max-h-96 overflow-y-auto font-mono text-sm">
               <div className="text-center mb-4">
                 <p className="font-bold">ELITE AÇAÍ</p>
-                <p>CNPJ: 00.000.000/0001-00</p>
+                <p>CNPJ: {storeSettings?.cnpj || '00.000.000/0001-00'}</p>
                 <p>Rua das Frutas, 123 - Centro</p>
                 <p>Tel: (85) 98904-1010</p>
                 <p>--------------------------</p>
@@ -1066,38 +1010,6 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
         </div>
       )}
       
-      {/* Scale Test Modal */}
-      {showScaleConfig && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <ScaleConfigPanel
-              connection={scaleConnection}
-              currentWeight={currentWeight}
-              isReading={isReading}
-              lastError={lastError}
-              reconnecting={reconnecting}
-              scaleConfig={scaleConfig}
-              availablePorts={availablePorts}
-              connect={connectScale}
-              disconnect={disconnectScale}
-              requestStableWeight={requestStableWeight}
-              updateConfig={updateConfig}
-              simulateWeight={simulateWeight}
-              listAvailablePorts={listAvailablePorts}
-              onClose={handleScaleTestClose}
-              onClose={() => {
-                handleScaleTestClose();
-              }}
-              onDisconnect={() => {
-                console.log('🔌 Desconexão detectada, atualizando estado');
-                setScaleStatusKey(prev => prev + 1);
-              }}
-              keepConnectionOnClose={true}
-            />
-          </div>
-        </div>
-      )}
-      
       {/* Scale Weight Modal */}
       {showScaleWeightModal && selectedWeighableProduct && (
         <ScaleWeightModal
@@ -1105,7 +1017,7 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook }) => {
           onClose={() => setShowScaleWeightModal(false)}
           onWeightConfirm={handleWeightConfirm}
           productName={selectedWeighableProduct.name}
-          isScaleConnected={scaleConnection.isConnected}
+          isScaleConnected={true}
           currentWeight={currentWeight}
           requestStableWeight={requestStableWeight}
           isReading={isReading}

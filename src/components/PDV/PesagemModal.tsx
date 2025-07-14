@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useWeightFromScale } from "../../hooks/useWeightFromScale";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function PesagemModal({ produto, onConfirmar, useDirectScale = false }: { 
   produto: any, 
@@ -9,7 +9,9 @@ export function PesagemModal({ produto, onConfirmar, useDirectScale = false }: {
 }) {
   const [pesoManual, setPesoManual] = useState<number>(0);
   const [tentativas, setTentativas] = useState<number>(0);
-  const { fetchWeight, loading } = useWeightFromScale();
+  const { fetchWeight, loading, isWeightDuplicate, confirmWeight } = useWeightFromScale();
+  const [isDuplicate, setIsDuplicate] = useState<boolean>(false);
+  const confirmedRef = useRef<boolean>(false);
   
   // Tentar ler o peso automaticamente quando o modal abrir
   useEffect(() => {
@@ -39,7 +41,27 @@ export function PesagemModal({ produto, onConfirmar, useDirectScale = false }: {
     }
     const pesoGramas = Math.round(peso * 1000);
     setPesoManual(pesoGramas);
+    setIsDuplicate(isWeightDuplicate(peso));
     console.log("✅ Peso lido:", pesoGramas, "g");
+  };
+
+  const handleConfirmarPeso = () => {
+    if (pesoManual <= 0) return;
+    
+    // Verificar se é um peso duplicado e ainda não foi confirmado
+    if (isDuplicate && !confirmedRef.current) {
+      if (confirm("Esse peso é igual ao anterior. Tem certeza que deseja confirmar novamente?")) {
+        // Marcar como confirmado para evitar múltiplas confirmações
+        confirmedRef.current = true;
+        // Registrar o peso como confirmado
+        confirmWeight(pesoManual / 1000); // Converter para kg
+        // Chamar o callback de confirmação
+        onConfirmar(pesoManual);
+      }
+    } else {
+      confirmWeight(pesoManual / 1000); // Converter para kg
+      onConfirmar(pesoManual);
+    }
   };
 
   return (
@@ -102,9 +124,15 @@ export function PesagemModal({ produto, onConfirmar, useDirectScale = false }: {
           ))}
         </div>
 
+        {isDuplicate && (
+          <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-2 rounded mt-3">
+            <p className="text-sm">⚠️ Atenção: Este peso é igual ao último confirmado.</p>
+          </div>
+        )}
+
         <button
-          onClick={() => onConfirmar(pesoManual)}
-          className="bg-blue-600 text-white px-4 py-2 rounded mt-3"
+          onClick={handleConfirmarPeso}
+          className={`${isDuplicate ? 'bg-yellow-600' : 'bg-blue-600'} text-white px-4 py-2 rounded mt-3`}
           title="Confirmar peso manual"
         >
           Confirmar Peso

@@ -19,11 +19,13 @@ import {
 interface OrderCardProps {
   order: Order;
   onStatusChange: (orderId: string, status: OrderStatus) => void;
+  storeSettings?: any;
   isAttendant?: boolean;
 }
 
 const OrderCard: React.FC<OrderCardProps> = ({ 
   order, 
+  storeSettings,
   onStatusChange, 
   isAttendant = false 
 }) => {
@@ -235,6 +237,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
       {showPrintView && (
         <OrderPrintView 
           order={order} 
+          storeSettings={storeSettings}
           onClose={() => setShowPrintView(false)} 
         />
       )}

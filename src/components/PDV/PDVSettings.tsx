@@ -18,6 +18,7 @@ const PDVSettings: React.FC = () => {
   const [localSettings, setLocalSettings] = useState({
     store_name: '',
     phone: '',
+    cnpj: '',
     address: '',
     delivery_fee: 0,
     min_order_value: 0,
@@ -45,6 +46,7 @@ const PDVSettings: React.FC = () => {
       setLocalSettings({
         store_name: storeSettings.store_name || '',
         phone: storeSettings.phone || '',
+        cnpj: storeSettings.cnpj || '',
         address: storeSettings.address || '',
         delivery_fee: storeSettings.delivery_fee || 0,
         min_order_value: storeSettings.min_order_value || 0,
@@ -215,6 +217,7 @@ const PDVSettings: React.FC = () => {
     JSON.stringify(localSettings) !== JSON.stringify({
       store_name: storeSettings?.store_name || '',
       phone: storeSettings?.phone || '',
+      cnpj: storeSettings?.cnpj || '',
       address: storeSettings?.address || '',
       delivery_fee: storeSettings?.delivery_fee || 0,
       min_order_value: storeSettings?.min_order_value || 0,
@@ -318,6 +321,19 @@ const PDVSettings: React.FC = () => {
                   onChange={(e) => setLocalSettings(prev => ({ ...prev, phone: e.target.value }))}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="(85) 99999-9999"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  CNPJ
+                </label>
+                <input
+                  type="text"
+                  value={localSettings.cnpj || ''}
+                  onChange={(e) => setLocalSettings(prev => ({ ...prev, cnpj: e.target.value }))}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="00.000.000/0001-00"
                 />
               </div>
 

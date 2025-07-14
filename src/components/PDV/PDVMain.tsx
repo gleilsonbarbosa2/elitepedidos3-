@@ -7,6 +7,7 @@ import PDVSalesScreen from './PDVSalesScreen';
 import UnifiedAttendancePage from '../UnifiedAttendancePage';
 import PDVProductsManager from './PDVProductsManager';
 import PDVReports from './PDVReports';
+import { useStoreHours } from '../../hooks/useStoreHours';
 import PDVCashReportWithDateFilter from './PDVCashReportWithDateFilter';
 import PDVCashReportWithDetails from './PDVCashReportWithDetails';
 import PDVDailyCashReport from './PDVDailyCashReport';
@@ -92,6 +93,7 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
   const [newOrderAlert, setNewOrderAlert] = useState(false);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [filteredMenuCategories, setFilteredMenuCategories] = useState(menuCategories);
+  const { storeSettings } = useStoreHours();
   const audioRef = useRef<HTMLAudioElement>(new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"));
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true); 
   
@@ -318,7 +320,7 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
   const renderScreen = () => {
     switch (activeScreen) {
       case 'attendance':
-        return <UnifiedAttendancePage operator={operator} scaleHook={scaleHook} />;
+        return <UnifiedAttendancePage operator={operator} scaleHook={scaleHook} storeSettings={storeSettings} />;
       case 'products':
         return <PDVProductsManager />;
       case 'reports':
