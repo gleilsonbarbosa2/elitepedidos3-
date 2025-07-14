@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Calendar, Clock, Tag, Store, DollarSign, Printer, Save, RefreshCw, AlertCircle } from 'lucide-react';
+import { Settings, Calendar, Clock, Tag, Store, DollarSign, Printer, Save, RefreshCw, AlertCircle, MessageCircle } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions';
 import PermissionGuard from '../PermissionGuard';
 import { useStoreHours } from '../../hooks/useStoreHours';
+import PDVChatSettings from './PDVChatSettings';
 import { StoreHours } from '../../types/store';
 import ProductScheduleModal from '../Admin/ProductScheduleModal';
 import { products } from '../../data/products';
@@ -13,7 +14,7 @@ const PDVSettings: React.FC = () => {
   const { storeHours, storeSettings, updateStoreHours, updateStoreSettings, getStoreStatus } = useStoreHours();
   const { getProductSchedule, saveProductSchedule } = useProductScheduling();
   
-  const [activeTab, setActiveTab] = useState<'store' | 'delivery' | 'promotions' | 'printer'>('store');
+  const [activeTab, setActiveTab] = useState<'store' | 'delivery' | 'promotions' | 'printer' | 'chat'>('store');
   const [localHours, setLocalHours] = useState<Record<number, Partial<StoreHours>>>({});
   const [localSettings, setLocalSettings] = useState({
     store_name: '',
@@ -285,6 +286,17 @@ const PDVSettings: React.FC = () => {
             >
               <Printer size={18} />
               Impressora
+            </button>
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                activeTab === 'chat'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <MessageCircle size={18} />
+              Chat
             </button>
           </div>
         </div>
@@ -712,7 +724,6 @@ const PDVSettings: React.FC = () => {
                   type="number"
                   min="1"
                   max="5"
-                  step="0.5"
                   value={printerSettings.font_size}
                   onChange={(e) => setPrinterSettings(prev => ({ ...prev, font_size: parseFloat(e.target.value) || 2 }))}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -786,6 +797,12 @@ const PDVSettings: React.FC = () => {
                 Salvar Configurações de Impressora
               </button>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'chat' && (
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <PDVChatSettings />
           </div>
         )}
 

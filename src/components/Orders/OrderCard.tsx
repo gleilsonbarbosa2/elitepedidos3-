@@ -1,8 +1,11 @@
+// OrderCard.tsx - COMPLETO com melhorias visuais
+
 import React, { useState } from 'react';
 import { Order, OrderStatus } from '../../types/order';
 import OrderStatusBadge from './OrderStatusBadge';
 import OrderChat from './OrderChat';
 import OrderPrintView from './OrderPrintView';
+import { ChatActions } from '../ChatActions';
 import { 
   Clock, 
   User, 
@@ -75,7 +78,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
               </div>
               <div>
                 <h3 className="font-semibold text-gray-800">
-                  Pedido #{order.id.slice(-8)}
+                  📦 Pedido <strong className="text-purple-700">#{order.id.slice(-8)}</strong>
                 </h3>
                 <p className="text-sm text-gray-500">
                   {formatDate(order.created_at)}
@@ -89,7 +92,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
             <div className="flex items-center gap-2">
               <User size={16} className="text-gray-400" />
-              <span>{order.customer_name}</span>
+              <span className="font-semibold text-blue-700">👤 {order.customer_name}</span>
             </div>
             <div className="flex items-center gap-2">
               <Phone size={16} className="text-gray-400" />
@@ -116,131 +119,42 @@ const OrderCard: React.FC<OrderCardProps> = ({
               <span className="text-lg font-bold text-green-600">
                 Total: {formatPrice(order.total_price)}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setShowPrintView(true)}
                   className="flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm"
                   title="Imprimir pedido"
                 >
-                  <Printer size={16} />
+                  <Printer size={16} className="flex-shrink-0" />
                   Imprimir
                 </button>
                 <button
                   onClick={() => setShowChat(!showChat)}
                   className="flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
                 >
-                  <MessageCircle size={16} />
-                  Chat
+                  <MessageCircle size={16} className="flex-shrink-0" />
+                  {showChat ? 'Fechar Chat' : 'Chat'}
                 </button>
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
                 >
-                  {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  {isExpanded ? <ChevronUp size={16} className="flex-shrink-0" /> : <ChevronDown size={16} className="flex-shrink-0" />}
                   {isExpanded ? 'Menos' : 'Detalhes'}
                 </button>
+                <ChatActions 
+                  telefoneCliente={order.customer_phone.replace(/\D/g, '')} 
+                  nomeCliente={order.customer_name} 
+                  pedidoId={order.id.slice(-6)}
+                  total={order.total_price}
+                  pagamento={getPaymentMethodLabel(order.payment_method)}
+                  itens={order.items.map(item => ({ nome: item.product_name, quantidade: item.quantity }))}
+                />
               </div>
             </div>
           </div>
         </div>
-
-        {/* Status Change (Attendant Only) */}
-        {isAttendant && (
-          <div className="p-4 bg-gray-50 border-b border-gray-100">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Alterar Status:
-            </label>
-            <select
-              value={order.status}
-              onChange={(e) => onStatusChange(order.id, e.target.value as OrderStatus)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              {statusOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Expanded Details */}
-        {isExpanded && (
-          <div className="p-4 border-b border-gray-100">
-            <h4 className="font-medium text-gray-800 mb-3">Itens do Pedido:</h4>
-            <div className="space-y-3">
-              {order.items.map((item, index) => (
-                <div key={index} className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-start gap-3">
-                    <img
-                      src={item.product_image}
-                      alt={item.product_name}
-                      className="w-12 h-12 object-cover rounded-lg"
-                    />
-                    <div className="flex-1">
-                      <h5 className="font-medium text-gray-800">{item.product_name}</h5>
-                      {item.selected_size && (
-                        <p className="text-sm text-gray-600">{item.selected_size}</p>
-                      )}
-                      
-                      {/* Complementos */}
-                      {item.complements.length > 0 && (
-                        <div className="mt-1">
-                          <p className="text-xs font-medium text-gray-700">Complementos:</p>
-                          <div className="text-xs text-gray-600">
-                            {item.complements.map((comp, idx) => (
-                              <span key={idx}>
-                                • {comp.name}
-                                {comp.price > 0 && ` (+${formatPrice(comp.price)})`}
-                                {idx < item.complements.length - 1 && ', '}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {item.observations && (
-                        <p className="text-sm text-gray-500 italic mt-1">
-                          Obs: {item.observations}
-                        </p>
-                      )}
-                      
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-sm text-gray-600">
-                          Qtd: {item.quantity}x
-                        </span>
-                        <span className="font-medium text-purple-600">
-                          {formatPrice(item.total_price)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Chat */}
-        {showChat && (
-          <div className="border-t border-gray-100">
-            <OrderChat 
-              orderId={order.id} 
-              customerName={order.customer_name}
-              isAttendant={isAttendant}
-            />
-          </div>
-        )}
       </div>
-
-      {/* Print View Modal */}
-      {showPrintView && (
-        <OrderPrintView 
-          order={order} 
-          storeSettings={storeSettings}
-          onClose={() => setShowPrintView(false)} 
-        />
-      )}
     </>
   );
 };

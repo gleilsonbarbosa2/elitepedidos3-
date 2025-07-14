@@ -387,7 +387,7 @@ const OrderTrackingPage: React.FC = () => {
 
         {/* Chat */}
         {showChat && (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6 mt-4">
             <div className="bg-purple-50 border-b border-purple-200 p-4">
               <h3 className="font-semibold text-purple-800 flex items-center gap-2">
                 <MessageCircle size={20} />

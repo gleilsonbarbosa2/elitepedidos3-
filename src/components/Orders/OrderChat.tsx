@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useOrderChat } from '../../hooks/useOrders';
 import { Send, MessageCircle, Volume2, VolumeX, AlertCircle } from 'lucide-react';
-import { ChatMessage } from '../../types/order';
 
 interface OrderChatProps {
   orderId: string;
@@ -14,22 +13,64 @@ const OrderChat: React.FC<OrderChatProps> = ({
   customerName, 
   isAttendant = false 
 }) => {
+  console.log("Pedido ID:", orderId); // Debug: Check if orderId exists
   const [newMessage, setNewMessage] = useState('');
   const [senderName, setSenderName] = useState(isAttendant ? 'Atendente' : customerName);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [messageError, setMessageError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null); 
   
-  const { messages, loading, sendMessage, lastFetch, refreshMessages, playMessageSound } = useOrderChat(orderId);
+  const { messages, loading, sendMessage, lastFetch, refreshMessages, fetchMessages } = useOrderChat(orderId);
+  const loadingTimerRef = useRef<number | null>(null);
+
+  // Debug: Check messages being loaded
+  useEffect(() => {
+    console.log("Messages loaded:", messages);
+    console.log("Order ID for chat:", orderId);
+  }, [messages]);
+  
+  // Add auto-retry if messages don't load within 2 seconds
+  useEffect(() => {
+    if (loading) {
+      // Clear any existing timer
+      if (loadingTimerRef.current) {
+        window.clearTimeout(loadingTimerRef.current);
+      }
+      
+      // Set a new timer to retry loading messages after 2 seconds
+      loadingTimerRef.current = window.setTimeout(() => {
+        console.log("⚠️ Auto-retry: Messages taking too long to load, forcing refresh...");
+        refreshMessages();
+      }, 2000);
+    } else {
+      // Clear the timer when loading completes
+      if (loadingTimerRef.current) {
+        window.clearTimeout(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
+    }
+    
+    return () => {
+      if (loadingTimerRef.current) {
+        window.clearTimeout(loadingTimerRef.current);
+      }
+    };
+  }, [loading, fetchMessages]);
 
   // Carregar configuração de som
   useEffect(() => {
     // Initialize audio element
-    audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/1862/1862-preview.mp3");
+    try {
+      audioRef.current = new Audio();
+      // Only set the src when we're ready to play to avoid cache issues
+    } catch (error) {
+      console.error('Error initializing audio element:', error);
+    }
     
     try {
+      console.log("🔊 Inicializando configurações de som do chat");
       const soundSettings = localStorage.getItem('chatSoundSettings');
       if (soundSettings) {
         const settings = JSON.parse(soundSettings);
@@ -37,6 +78,9 @@ const OrderChat: React.FC<OrderChatProps> = ({
         if (audioRef.current) {
           audioRef.current.volume = settings.volume || 0.5;
         }
+      } else {
+        // Create default settings if none exist
+        localStorage.setItem('chatSoundSettings', JSON.stringify({ enabled: true, volume: 0.5, soundUrl: "https://assets.mixkit.co/active_storage/sfx/1862/1862-preview.mp3" }));
       }
     } catch (error) {
       console.error('Erro ao carregar configurações de som:', error);
@@ -49,6 +93,7 @@ const OrderChat: React.FC<OrderChatProps> = ({
       }
     };
   }, []);
+
 
   // Salvar configuração de som
   const toggleSound = () => {
@@ -66,80 +111,47 @@ const OrderChat: React.FC<OrderChatProps> = ({
     }
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Efeito para tocar som quando novas mensagens chegarem
-  useEffect(() => {
-    // Verificar se há mensagens e se não é a primeira carga
-    if (messages.length > 0 && !loading) {
-      // Verificar se a última mensagem não é do usuário atual
-      const lastMessage = messages[messages.length - 1];
-    }
-  }, [messages, loading]);
-
-  // Monitorar status de conexão
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      console.log('🌐 Conexão restaurada, recarregando mensagens...');
-      refreshMessages();
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
-      console.log('📡 Conexão perdida');
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [refreshMessages]);
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const messageText = newMessage.trim();
-    if (!messageText) return;
-    
-    setMessageError(null);
-    setNewMessage(''); // Clear input immediately for better UX
-    
+  // Function to play message sound
+  const playMessageSound = () => {
     try {
-      console.log('Sending message:', messageText);
-      await sendMessage(messageText, isAttendant ? 'attendant' : 'customer', senderName);
+      // Create a new Audio instance each time to avoid cache issues
+      const audio = new Audio();
+      audio.src = "https://assets.mixkit.co/active_storage/sfx/1862/1862-preview.mp3";
       
-      try {
-        if (audioRef.current) {
-          const audio = audioRef.current;
-          audio.pause();
-          audio.currentTime = 0;
-          audio.play().catch(e => {
-            console.error('Erro ao tocar som:', e);
-            // Tentar tocar usando Web Audio API como fallback
+      // Add event listeners before setting src to avoid race conditions
+      audio.oncanplaythrough = () => {
+        audio.play().catch(e => {
+          if (e.name !== 'AbortError') {
+            console.error('Error playing sound:', e);
             playMessageSoundFallback();
-          });
-        }
-      } catch (error) {
-        console.error('Erro ao tocar som de mensagem:', error);
+          }
+        });
+      };
+      
+      audio.onerror = (e) => {
+        console.error('Audio error:', e);
         playMessageSoundFallback();
       }
+      
+      // Set a timeout to fall back if loading takes too long
+      const timeout = setTimeout(() => {
+        audio.onerror = null;
+        audio.oncanplaythrough = null;
+        playMessageSoundFallback();
+      }, 2000);
+      
+      // Clean up on successful play
+      audio.onplaying = () => {
+        clearTimeout(timeout);
+      };
     } catch (error) {
-      console.error('Erro ao enviar mensagem:', error);
-      setMessageError('Erro ao enviar mensagem. Tente novamente.');
-      setMessageError("Erro ao enviar mensagem. Tente novamente.");
+      console.error('Erro ao tocar som de mensagem:', error);
+      playMessageSoundFallback();
     }
   };
   
+  // Fallback sound method
   const playMessageSoundFallback = () => {
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -162,6 +174,69 @@ const OrderChat: React.FC<OrderChatProps> = ({
     }
   };
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Monitorar status de conexão
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('🌐 Conexão restaurada, recarregando mensagens...');
+      setIsOnline(true);
+      
+      // Force refresh messages with a small delay to ensure connection is stable
+      setTimeout(() => {
+        refreshMessages();
+      }, 500);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      console.log('📡 Conexão perdida');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [refreshMessages]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!isOnline) {
+      setMessageError('Você está offline. Aguarde a conexão ser restaurada para enviar mensagens.');
+      return;
+    }
+    
+    console.log("💬 Tentando enviar mensagem para o pedido:", orderId);
+    try {
+      const messageText = newMessage.trim();
+      if (!messageText) return;
+      
+      setMessageError(null);
+      setNewMessage(''); // Clear input immediately for better UX
+      
+      console.log('📤 Enviando mensagem:', messageText, "para o pedido:", orderId);
+      await sendMessage(messageText, isAttendant ? 'attendant' : 'customer', senderName, { playSound: true });
+
+      // Only play sound if enabled
+      if (soundEnabled) {
+        playMessageSound();
+      }
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      setMessageError('Erro ao enviar mensagem. Tente novamente.');
+    }
+  };
+
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString('pt-BR', {
       hour: '2-digit',
@@ -171,15 +246,17 @@ const OrderChat: React.FC<OrderChatProps> = ({
 
   if (loading) {
     return (
-      <div className="p-4 text-center">
+      // Loading state
+      <div className="p-4 text-center cursor-pointer" onClick={() => refreshMessages()}>
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto"></div>
-        <p className="text-sm text-gray-500 mt-2">Carregando chat...</p>
+        <p className="text-sm text-gray-500 mt-2">Carregando chat... (clique para tentar novamente)</p>
       </div>
     );
   }
 
+  console.log("🔍 Renderizando chat com", messages.length, "mensagens para o pedido:", orderId);
   return (
-    <div className="bg-gray-50 rounded-lg border border-gray-200 flex flex-col h-[500px]">
+    <div className="bg-gray-50 rounded-lg border border-gray-200 flex flex-col h-[400px]">
       {/* Chat Header */}
       <div className="p-3 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between mb-1">
@@ -269,16 +346,6 @@ const OrderChat: React.FC<OrderChatProps> = ({
           <div className="flex items-center gap-2 text-red-600 text-xs">
             <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
             <span>Sem conexão - As mensagens serão sincronizadas quando a conexão for restaurada</span>
-          </div>
-        </div>
-      )}
-
-      {/* Error message */}
-      {messageError && (
-        <div className="p-2 bg-red-50 border-t border-red-200">
-          <div className="flex items-center gap-2 text-red-600 text-xs">
-            <AlertCircle size={14} />
-            <span>{messageError}</span>
           </div>
         </div>
       )}

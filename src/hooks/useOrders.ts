@@ -1,6 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Order, OrderStatus, ChatMessage } from '../types/order';
+
+// Add global error handler for message channel errors
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (event) => {
+    if (event.message && event.message.includes('message channel closed before a response was received')) {
+      console.log('Ignoring extension-related error:', event.message);
+      event.preventDefault();
+      return true;
+    }
+  });
+}
 
 export const useOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -121,7 +132,11 @@ export const useOrders = () => {
     try {
       // Obter configuração de som do localStorage
       const soundSettings = localStorage.getItem('orderSoundSettings');
-      const settings = soundSettings ? JSON.parse(soundSettings) : { enabled: true, volume: 0.7, soundUrl: "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" };
+      const settings = soundSettings ? JSON.parse(soundSettings) : { 
+        enabled: true, 
+        volume: 0.7, 
+        soundUrl: "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" 
+      };
       
       // Verificar se o som está habilitado
       if (!settings.enabled) {
@@ -130,13 +145,39 @@ export const useOrders = () => {
       }
       
       // Criar um elemento de áudio e tocar o som configurado
-      const audio = new Audio(settings.soundUrl);
-      audio.volume = settings.volume; // Ajustar volume conforme configuração
-      audio.play().catch(e => {
-        console.error('Erro ao tocar som de notificação:', e);
-        // Tentar método alternativo se falhar
+      try {
+        const audio = new Audio();
+        audio.volume = settings.volume; // Ajustar volume conforme configuração
+        
+        // Add event listeners before setting src to avoid race conditions
+        audio.oncanplaythrough = () => {
+          audio.play().catch(e => {
+            if (e.name !== 'AbortError') {
+              console.error('Erro ao tocar som de notificação:', e);
+              playFallbackSound();
+            }
+          });
+        };
+        
+        audio.onerror = () => {
+          console.error('Erro ao carregar áudio de notificação');
+          playFallbackSound();
+        };
+        
+        // Set source after adding event listeners
+        audio.src = settings.soundUrl;
+        
+        // Set a timeout in case the audio never loads
+        setTimeout(() => {
+          if (audio.readyState < 3) { // HAVE_FUTURE_DATA
+            console.log('Áudio não carregou a tempo, usando fallback');
+            playFallbackSound();
+          }
+        }, 2000);
+      } catch (audioError) {
+        console.error('Erro ao criar elemento de áudio:', audioError);
         playFallbackSound();
-      });
+      }
       
       // Mostrar notificação visual também, se suportado pelo navegador
       if ('Notification' in window && Notification.permission === 'granted') {
@@ -237,23 +278,138 @@ export const useOrderChat = (orderId: string) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastFetch, setLastFetch] = useState<Date>(new Date());
+  const messagesRef = useRef<ChatMessage[]>([]); 
+
+  // Keep a ref to the current messages for use in callbacks
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const fetchMessages = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('🔄 Buscando mensagens para o pedido:', orderId);
+      console.log('🔄 Buscando mensagens para o pedido:', orderId, 'às', new Date().toLocaleTimeString(), 'orderId type:', typeof orderId);
+      
+      if (!orderId) {
+        console.error('❌ orderId não fornecido para buscar mensagens');
+        setLoading(false);
+        return;
+      }
+      
+      // Ensure orderId is a valid UUID
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
+        console.error('❌ orderId não é um UUID válido:', orderId);
+        setLoading(false);
+        return;
+      }
+
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey || 
+          supabaseUrl === 'https://placeholder.supabase.co' || 
+          supabaseKey === 'placeholder-key') {
+        console.error('❌ Supabase não está configurado corretamente');
+        console.error('   Por favor, configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env');
+        console.error('   Valores atuais:');
+        console.error('   - VITE_SUPABASE_URL:', supabaseUrl || 'undefined');
+        console.error('   - VITE_SUPABASE_ANON_KEY:', supabaseKey ? '[DEFINIDO]' : 'undefined');
+        setLoading(false);
+        return;
+      }
+
+      // Test network connectivity first
+      console.log('🌐 Testando conectividade de rede...');
+      try {
+        // Skip external connectivity test to avoid timeout issues
+        console.log('⏭️ Pulando teste de conectividade externa para evitar timeouts');
+      } catch (connectivityError) {
+        console.log('⏭️ Teste de conectividade pulado');
+      }
+
+      // Test Supabase connectivity specifically
+      console.log('🔍 Testando conectividade com Supabase...');
+      try {
+        const supabaseTest = await fetch(`${supabaseUrl}/rest/v1/`, {
+          method: 'HEAD',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`
+          },
+          signal: AbortSignal.timeout(5000)
+        });
+        console.log('✅ Conectividade com Supabase OK, status:', supabaseTest.status);
+      } catch (supabaseTestError) {
+        console.error('❌ Falha no teste de conectividade com Supabase:', supabaseTestError);
+        console.error('   Verifique:');
+        console.error('   1. Se o projeto Supabase está ativo em https://supabase.com/dashboard');
+        console.error('   2. Se as credenciais estão corretas');
+        console.error('   3. Se não há problemas de rede ou firewall');
+        
+        // Set empty messages and return instead of continuing
+        setMessages([]);
+        setLoading(false);
+        return;
+      }
+      // Add a timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 8000); // Increased timeout
+      
+      console.log('📡 Fazendo requisição para buscar mensagens...');
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
         .eq('order_id', orderId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .abortSignal(controller.signal);
+      
+      clearTimeout(timeoutId);
 
-      if (error) throw error;
+      if (error) {
+        if (error.message === 'Failed to fetch') {
+          console.error('❌ Erro de conexão com Supabase:', error);
+          console.error('   🔧 Soluções possíveis:');
+          console.error('   1. Verifique sua conexão com a internet');
+          console.error('   2. Confirme se as credenciais do Supabase estão corretas');
+          console.error('   3. Verifique se o projeto Supabase está ativo');
+          console.error('   4. Desative temporariamente extensões do navegador');
+          console.error('   5. Tente usar outro navegador ou rede');
+          console.error('   6. Verifique se firewall/antivírus não está bloqueando');
+        } else if (error.name === 'AbortError') {
+          console.error('❌ Timeout ao buscar mensagens - requisição cancelada após 8 segundos');
+          console.error('   Isso pode indicar conexão lenta ou problemas no servidor');
+        } else {
+          console.error('❌ Erro ao buscar mensagens:', error);
+        }
+        setMessages([]);
+        setLastFetch(new Date());
+        return;
+      }
+      
       setMessages(data || []);
-      console.log('✅ Mensagens carregadas:', data?.length || 0);
+      console.log('✅ Mensagens carregadas:', data?.length || 0, 'às', new Date().toLocaleTimeString());
       setLastFetch(new Date());
     } catch (err) {
-      console.error('Erro ao carregar mensagens:', err);
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          console.error('❌ Requisição cancelada (timeout)');
+        } else if (err.message === 'Failed to fetch') {
+          console.error('❌ Falha na conexão de rede:', err);
+          console.error('   🔧 Diagnóstico recomendado:');
+          console.error('   1. Abra as Ferramentas do Desenvolvedor (F12)');
+          console.error('   2. Vá para a aba Network e tente novamente');
+          console.error('   3. Procure por requisições falhadas para identificar o problema');
+        } else {
+          console.error('❌ Erro inesperado ao carregar mensagens:', err);
+        }
+      } else {
+        console.error('❌ Erro desconhecido ao carregar mensagens:', err);
+      }
+      // Set empty messages instead of leaving in error state
+      setMessages([]);
     } finally {
       setLoading(false);
       setLastFetch(new Date());
@@ -263,17 +419,52 @@ export const useOrderChat = (orderId: string) => {
   // Função para recarregar mensagens periodicamente
   const refreshMessages = useCallback(async () => {
     try {
-      console.log('🔄 Recarregando mensagens para o pedido:', orderId);
-      const { data, error } = await supabase
+      console.log('🔄 Recarregando mensagens para o pedido:', orderId, 'às', new Date().toLocaleTimeString());
+      if (!orderId) {
+        console.error('❌ orderId não fornecido para recarregar mensagens');
+        return;
+      }
+      
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey || 
+          supabaseUrl === 'https://placeholder.supabase.co' || 
+          supabaseKey === 'placeholder-key') {
+        console.error('❌ Supabase não está configurado para recarregar mensagens');
+        return;
+      }
+
+      // Add a timeout to prevent hanging requests
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout refreshing messages')), 3000);
+      });
+      
+      const fetchPromise = supabase
         .from('chat_messages')
         .select('*')
         .eq('order_id', orderId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise])
+        .catch(err => {
+          if (err.message === 'Failed to fetch') {
+            console.error('❌ Erro de conexão ao recarregar mensagens:', err);
+          } else {
+            console.error('❌ Erro ao recarregar mensagens (timeout ou outro erro):', err);
+          }
+          return { data: null, error: err };
+        });
+
+      if (error) {
+        console.error('❌ Erro ao recarregar mensagens:', error);
+        // Don't throw error, just log it and continue
+        return;
+      }
       
       // Só atualizar se houver mudanças
-      console.log('✅ Mensagens recarregadas:', data?.length || 0);
+      console.log('✅ Mensagens recarregadas:', data?.length || 0, 'às', new Date().toLocaleTimeString());
       const newMessages = data || [];
       if (newMessages.length !== messages.length || 
           (newMessages.length > 0 && messages.length > 0 && 
@@ -282,17 +473,32 @@ export const useOrderChat = (orderId: string) => {
         setLastFetch(new Date());
       }
     } catch (err) {
-      console.error('Erro ao recarregar mensagens:', err);
+      console.error('❌ Erro ao recarregar mensagens:', err);
     }
   }, [orderId, messages]);
 
   const sendMessage = useCallback(async (
     message: string, 
     senderType: 'customer' | 'attendant',
-    senderName: string,
+    senderName: string, 
     options?: { playSound?: boolean }
   ) => {
     try {
+      if (!orderId) {
+        console.error('❌ orderId não fornecido para enviar mensagem');
+        throw new Error('ID do pedido não fornecido');
+      }
+      
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey || 
+          supabaseUrl === 'https://placeholder.supabase.co' || 
+          supabaseKey === 'placeholder-key') {
+        throw new Error('Supabase não está configurado corretamente. Verifique o arquivo .env');
+      }
+
       console.log('📤 Enviando mensagem:', message, 'tipo:', senderType);
       
       if (!message.trim()) {
@@ -301,7 +507,7 @@ export const useOrderChat = (orderId: string) => {
       }
       
       const { data, error } = await supabase
-        .from('chat_messages')
+        .from('chat_messages') // Using the correct table name
         .insert([{
           order_id: orderId,
           sender_type: senderType,
@@ -314,7 +520,13 @@ export const useOrderChat = (orderId: string) => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao inserir mensagem:', error);
+        if (error.message === 'Failed to fetch') {
+          throw new Error('Erro de conexão. Verifique sua internet e configuração do Supabase.');
+        }
+        throw new Error(`Erro ao enviar mensagem: ${error.message}`);
+      }
       console.log('✅ Mensagem enviada com sucesso');
 
       try {
@@ -333,15 +545,13 @@ export const useOrderChat = (orderId: string) => {
         console.warn('Erro ao criar notificação (não crítico):', notifError);
       }
 
-      // Tocar som se solicitado
-      if (options?.playSound) {
-        playMessageSound();
-      }
-
       return data;
     } catch (err) {
       console.error('❌ Erro ao enviar mensagem:', err);
-      throw new Error(err instanceof Error ? err.message : 'Erro ao enviar mensagem');
+      if (err instanceof Error) {
+        throw err;
+      }
+      throw new Error('Erro desconhecido ao enviar mensagem');
     }
   }, [orderId]);
 
@@ -361,7 +571,11 @@ export const useOrderChat = (orderId: string) => {
   }, []);
 
   useEffect(() => {
-    if (!orderId) return;
+    if (!orderId) {
+      console.error('❌ orderId não fornecido no useEffect');
+      setLoading(false);
+      return;
+    }
 
     fetchMessages();
 
@@ -383,12 +597,10 @@ export const useOrderChat = (orderId: string) => {
         (payload) => {
           console.log('🔔 Nova mensagem recebida via realtime:', payload);
           console.log('📨 Nova mensagem recebida via realtime:', payload.new);
-          setMessages(prev => [...prev, payload.new as ChatMessage]);
+          setMessages(prev => [...prev, payload.new]);
           setLastFetch(new Date());
           // Tocar som para nova mensagem
-          if (payload.new.sender_type !== (isAttendant ? 'attendant' : 'customer')) {
-            playMessageSound();
-          }
+          // Removed sound playing here as it's handled in the component
         }
       )
       .on('postgres_changes', 
@@ -494,7 +706,6 @@ export const useOrderChat = (orderId: string) => {
     lastFetch,
     sendMessage,
     markAsRead,
-    refetch: fetchMessages,
     refreshMessages
   };
 };
