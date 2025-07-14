@@ -1,22 +1,25 @@
-// OrderCard.tsx - COMPLETO com detalhes visíveis
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Order, OrderStatus } from '../../types/order';
 import OrderStatusBadge from './OrderStatusBadge';
 import OrderChat from './OrderChat';
 import OrderPrintView from './OrderPrintView';
 import { ChatActions } from '../ChatActions';
-import { 
-  Clock, 
-  User, 
-  Phone, 
-  MapPin, 
+import {
+  Clock,
+  User,
+  Phone,
+  MapPin,
   CreditCard,
   MessageCircle,
   ChevronDown,
   ChevronUp,
   Package,
-  Printer
+  Printer,
+  ShoppingCart,
+  Coins,
+  Truck,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 
 interface OrderCardProps {
@@ -26,15 +29,32 @@ interface OrderCardProps {
   isAttendant?: boolean;
 }
 
-const OrderCard: React.FC<OrderCardProps> = ({ 
-  order, 
+const OrderCard: React.FC<OrderCardProps> = ({
+  order,
   storeSettings,
-  onStatusChange, 
-  isAttendant = false 
+  onStatusChange,
+  isAttendant = false
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showPrintView, setShowPrintView] = useState(false);
+  const hasPrintedRef = useRef(false);
+
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('pdv_settings');
+    const settings = savedSettings ? JSON.parse(savedSettings) : {};
+    const autoPrint = settings?.printer_layout?.auto_print_delivery;
+
+    const isNew = order.status === 'pending';
+
+    if (autoPrint && isNew && !hasPrintedRef.current) {
+      hasPrintedRef.current = true;
+
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    }
+  }, [order]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -56,14 +76,14 @@ const OrderCard: React.FC<OrderCardProps> = ({
     }
   };
 
-  const statusOptions: { value: OrderStatus; label: string }[] = [
-    { value: 'pending', label: 'Pendente' },
-    { value: 'confirmed', label: 'Confirmado' },
-    { value: 'preparing', label: 'Em Preparo' },
-    { value: 'out_for_delivery', label: 'Saiu para Entrega' },
-    { value: 'ready_for_pickup', label: 'Pronto para Retirada' },
-    { value: 'delivered', label: 'Entregue' },
-    { value: 'cancelled', label: 'Cancelado' }
+  const statusOptions: { value: OrderStatus; label: string; icon: JSX.Element }[] = [
+    { value: 'pending', label: 'Pendente', icon: <Clock size={14} className="inline mr-1" /> },
+    { value: 'confirmed', label: 'Confirmado', icon: <CheckCircle size={14} className="inline mr-1" /> },
+    { value: 'preparing', label: 'Em Preparo', icon: <ShoppingCart size={14} className="inline mr-1" /> },
+    { value: 'out_for_delivery', label: 'Saiu para Entrega', icon: <Truck size={14} className="inline mr-1" /> },
+    { value: 'ready_for_pickup', label: 'Pronto para Retirada', icon: <Package size={14} className="inline mr-1" /> },
+    { value: 'delivered', label: 'Entregue', icon: <CheckCircle size={14} className="inline mr-1 text-green-600" /> },
+    { value: 'cancelled', label: 'Cancelado', icon: <XCircle size={14} className="inline mr-1 text-red-600" /> }
   ];
 
   return (
@@ -79,12 +99,25 @@ const OrderCard: React.FC<OrderCardProps> = ({
                 <h3 className="font-semibold text-gray-800">
                   📦 Pedido <strong className="text-purple-700">#{order.id.slice(-8)}</strong>
                 </h3>
-                <p className="text-sm text-gray-500">
-                  {formatDate(order.created_at)}
-                </p>
+                <p className="text-sm text-gray-500">{formatDate(order.created_at)}</p>
               </div>
             </div>
-            <OrderStatusBadge status={order.status} />
+            <div className="flex items-center gap-2">
+              <OrderStatusBadge status={order.status} />
+              {isAttendant && (
+                <select
+                  value={order.status}
+                  onChange={(e) => onStatusChange(order.id, e.target.value as OrderStatus)}
+                  className="text-sm border border-gray-300 rounded-md px-2 py-1 text-gray-700 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                >
+                  {statusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -138,9 +171,9 @@ const OrderCard: React.FC<OrderCardProps> = ({
                   {isExpanded ? <ChevronUp size={16} className="flex-shrink-0" /> : <ChevronDown size={16} className="flex-shrink-0" />}
                   {isExpanded ? 'Menos' : 'Detalhes'}
                 </button>
-                <ChatActions 
-                  telefoneCliente={order.customer_phone.replace(/\D/g, '')} 
-                  nomeCliente={order.customer_name} 
+                <ChatActions
+                  telefoneCliente={order.customer_phone.replace(/\D/g, '')}
+                  nomeCliente={order.customer_name}
                   pedidoId={order.id.slice(-6)}
                   total={order.total_price}
                   pagamento={getPaymentMethodLabel(order.payment_method)}
@@ -205,8 +238,8 @@ const OrderCard: React.FC<OrderCardProps> = ({
 
         {showChat && (
           <div className="border-t border-gray-100 mt-4">
-            <OrderChat 
-              orderId={order.id} 
+            <OrderChat
+              orderId={order.id}
               customerName={order.customer_name}
               isAttendant={isAttendant}
             />
@@ -214,10 +247,10 @@ const OrderCard: React.FC<OrderCardProps> = ({
         )}
 
         {showPrintView && (
-          <OrderPrintView 
-            order={order} 
+          <OrderPrintView
+            order={order}
             storeSettings={storeSettings}
-            onClose={() => setShowPrintView(false)} 
+            onClose={() => setShowPrintView(false)}
           />
         )}
       </div>

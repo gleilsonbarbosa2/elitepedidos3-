@@ -38,7 +38,8 @@ const PDVSettings: React.FC = () => {
     scale: 1,
     margin_left: 0,
     margin_top: 1,
-    margin_bottom: 1
+    margin_bottom: 1,
+	auto_print_delivery: false // ✅ adicione isso se ainda não tiver
   });
 
   // Inicializar configurações locais quando os dados carregarem
@@ -699,6 +700,21 @@ const PDVSettings: React.FC = () => {
               <Printer size={20} className="text-purple-600" />
               Configurações de Impressora
             </h3>
+			
+			{/* Checkbox para impressão automática */}
+    <div className="mb-4">
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+        <input
+          type="checkbox"
+          checked={printerSettings.auto_print_delivery}
+          onChange={(e) =>
+            setPrinterSettings(prev => ({ ...prev, auto_print_delivery: e.target.checked }))
+          }
+          className="rounded border-gray-300 text-purple-600 shadow-sm focus:ring-purple-500"
+        />
+        Imprimir automaticamente ao receber pedido do delivery
+      </label>
+    </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -786,6 +802,8 @@ const PDVSettings: React.FC = () => {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
+			  
+			  
             </div>
 
             <div className="mt-6 flex justify-end">
@@ -825,3 +843,5 @@ const PDVSettings: React.FC = () => {
 };
 
 export default PDVSettings;
+
+
