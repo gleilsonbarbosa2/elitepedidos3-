@@ -40,9 +40,13 @@ const OrderPrintView: React.FC<OrderPrintViewProps> = ({ order, storeSettings, o
     const isNew = order.status === 'pending';
     if (autoPrint && isNew && !hasPrintedRef.current) {
       hasPrintedRef.current = true;
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         window.print();
       }, 500);
+      
+      return () => {
+        clearTimeout(timeoutId);
+      };
     }
   }, [order]);
 

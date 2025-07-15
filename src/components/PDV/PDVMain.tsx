@@ -269,6 +269,11 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
   useEffect(() => {
     if (activeScreen === 'orders') {
       setNewOrderAlert(false);
+      // Also reset the pending orders count notification
+      const pendingCount = orders.filter(o => o.status === 'pending').length;
+      if (pendingCount === 0) {
+        setNotificationsViewed(true);
+      }
     }
   }, [activeScreen]);
 

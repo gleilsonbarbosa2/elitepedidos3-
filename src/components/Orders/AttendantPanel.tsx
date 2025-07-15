@@ -157,9 +157,12 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({
             prev.map((order) => order.id === payload.new.id ? payload.new as any : order)
           );
           
-          // If status changed from pending to something else, update count
-          if (payload.old.status === 'pending' && payload.new.status !== 'pending') {
+          // If status changed from pending to something else, update count and reset notification
+          if (payload.old && payload.old.status === 'pending' && payload.new.status !== 'pending') {
             setPendingOrdersCount(count => Math.max(0, count - 1));
+            if (pendingOrdersCount <= 1) {
+              setNotificationsViewed(true);
+            }
           }
         }
       )
@@ -263,7 +266,13 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({
   const handleBellClick = () => {
     setNotificationsViewed(true);
     setPendingOrdersCount(0);
-    console.log('🔔 Notifications viewed, resetting counter');
+    console.log('🔔 Notifications viewed, resetting counter to 0');
+    
+    // Also update the actual count based on current pending orders
+    const actualPendingCount = orders.filter(o => o.status === 'pending').length;
+    if (actualPendingCount === 0) {
+      setNotificationsViewed(true);
+    }
   };
 
   return (
