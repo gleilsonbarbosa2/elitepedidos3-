@@ -128,10 +128,10 @@ const Cart: React.FC<CartProps> = ({
   };
 
   const generateWhatsAppMessage = (orderId?: string, cashbackEarned?: number) => {
-    let message = `PEDIDO ELITE AÇAÍ\n\n`;
+    let message = `*PEDIDO ELITE AÇAÍ*\n\n`;
     
     // Itens do pedido
-    message += `ITENS:\n`;
+    message += `*ITENS:*\n`;
     items.forEach((item, index) => {
       message += `${index + 1}. ${item.product.name}`;
       if (item.selectedSize) {
@@ -157,7 +157,7 @@ const Cart: React.FC<CartProps> = ({
     });
 
     // Valores
-    message += `VALORES:\n`;
+    message += `*VALORES:*\n`;
     message += `Subtotal: ${formatPrice(totalPrice)}\n`;
     if (getDeliveryFee() > 0) {
       message += `Taxa de entrega (${deliveryInfo.neighborhood}): ${formatPrice(getDeliveryFee())}\n`;
@@ -165,17 +165,17 @@ const Cart: React.FC<CartProps> = ({
     if (appliedCashback > 0) {
       message += `Desconto cashback: -${formatPrice(appliedCashback)}\n`;
     }
-    message += `TOTAL: ${formatPrice(getTotalWithCashback())}\n\n`;
+    message += `*TOTAL: ${formatPrice(getTotalWithCashback())}*\n\n`;
 
     // Cashback ganho
     if (cashbackEarned && cashbackEarned > 0) {
-      message += `CASHBACK GANHO:\n`;
-      message += `Você ganhou ${formatPrice(cashbackEarned)} de cashback!\n`;
+      message += `*CASHBACK GANHO:*\n`;
+      message += `*Você ganhou ${formatPrice(cashbackEarned)} de cashback!*\n`;
       message += `Use até o final deste mês.\n\n`;
     }
 
     // Dados de entrega
-    message += `DADOS DE ENTREGA:\n`;
+    message += `*DADOS DE ENTREGA:*\n`;
     message += `Nome: ${deliveryInfo.name}\n`;
     message += `Telefone: ${deliveryInfo.phone}\n`;
     message += `Endereço: ${deliveryInfo.address}\n`;
@@ -192,7 +192,7 @@ const Cart: React.FC<CartProps> = ({
     }
     
     // Forma de pagamento
-    message += `\nPAGAMENTO: `;
+    message += `\n*PAGAMENTO:* `;
     switch (deliveryInfo.paymentMethod) {
       case 'money':
         message += `Dinheiro`;
@@ -202,11 +202,11 @@ const Cart: React.FC<CartProps> = ({
         break;
       case 'pix':
         message += `PIX\n`;
-        message += `DADOS PIX:\n`;
+        message += `*DADOS PIX:*\n`;
         message += `Chave: 85989041010\n`;
         message += `Nome: Grupo Elite\n`;
         message += `Valor: ${formatPrice(getTotalWithCashback())}\n\n`;
-        message += `IMPORTANTE: Envie o comprovante do PIX para confirmar o pedido!`;
+        message += `*IMPORTANTE: Envie o comprovante do PIX para confirmar o pedido!*`;
         break;
       case 'card':
         message += `Cartão`;
@@ -215,9 +215,9 @@ const Cart: React.FC<CartProps> = ({
 
     // Link de acompanhamento se o pedido foi criado
     if (orderId) {
-      message += `\n\nACOMPANHAR PEDIDO:\n`;
+      message += `\n\n*ACOMPANHAR PEDIDO:*\n`;
       message += `${window.location.origin}/pedido/${orderId}\n\n`;
-      message += `Salve este link para acompanhar seu pedido em tempo real!`;
+      message += `*Salve este link para acompanhar seu pedido em tempo real!*`;
     }
 
     return encodeURIComponent(message);

@@ -130,54 +130,33 @@ export const useOrders = () => {
   const playNotificationSound = () => {
     // Criar um som de notificação simples
     try {
-      // Obter configuração de som do localStorage
-      const soundSettings = localStorage.getItem('orderSoundSettings');
-      const settings = soundSettings ? JSON.parse(soundSettings) : { 
-        enabled: true, 
-        volume: 0.7, 
-        soundUrl: "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" 
-      };
+      console.log('🔊 Tocando som de notificação');
       
-      // Verificar se o som está habilitado
-      if (!settings.enabled) {
-        console.log('🔕 Som de notificação desabilitado nas configurações');
-        return;
-      }
+      // Usar URL direta para o som
+      const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+      audio.volume = 0.7;
       
-      // Criar um elemento de áudio e tocar o som configurado
-      try {
-        const audio = new Audio();
-        audio.volume = settings.volume; // Ajustar volume conforme configuração
-        
-        // Add event listeners before setting src to avoid race conditions
-        audio.oncanplaythrough = () => {
-          audio.play().catch(e => {
-            if (e.name !== 'AbortError') {
-              console.error('Erro ao tocar som de notificação:', e);
-              playFallbackSound();
-            }
-          });
-        };
-        
-        audio.onerror = () => {
-          console.error('Erro ao carregar áudio de notificação');
+      // Tocar o som após carregar
+      audio.addEventListener('canplaythrough', () => {
+        audio.play().catch(e => {
+          console.error('Erro ao tocar som de notificação:', e);
           playFallbackSound();
-        };
-        
-        // Set source after adding event listeners
-        audio.src = settings.soundUrl;
-        
-        // Set a timeout in case the audio never loads
-        setTimeout(() => {
-          if (audio.readyState < 3) { // HAVE_FUTURE_DATA
-            console.log('Áudio não carregou a tempo, usando fallback');
-            playFallbackSound();
-          }
-        }, 2000);
-      } catch (audioError) {
-        console.error('Erro ao criar elemento de áudio:', audioError);
+        });
+      });
+      
+      // Lidar com erros de carregamento
+      audio.addEventListener('error', () => {
+        console.error('Erro ao carregar áudio de notificação');
         playFallbackSound();
-      }
+      });
+      
+      // Definir um timeout para fallback
+      setTimeout(() => {
+        if (audio.readyState < 3) { // HAVE_FUTURE_DATA
+          console.log('Áudio não carregou a tempo, usando fallback');
+          playFallbackSound();
+        }
+      }, 2000);
       
       // Mostrar notificação visual também, se suportado pelo navegador
       if ('Notification' in window && Notification.permission === 'granted') {
@@ -199,6 +178,7 @@ export const useOrders = () => {
   // Função de fallback para tocar som usando Web Audio API
   const playFallbackSound = () => {
     try {
+      console.log('🔊 Usando método alternativo para tocar som');
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       
       // Criar um som de campainha/sino
@@ -209,16 +189,16 @@ export const useOrders = () => {
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
         
-        // Frequência mais alta para chamar atenção
-        oscillator.frequency.value = 1200;
+        // Frequência mais alta e volume maior para chamar atenção
+        oscillator.frequency.value = 1400;
         oscillator.type = 'sine';
         
         // Volume inicial mais alto
-        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        gainNode.gain.setValueAtTime(0.8, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.6);
         
         oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.5);
+        oscillator.stop(audioContext.currentTime + 0.6);
       };
       
       // Tocar o som duas vezes com intervalo para chamar mais atenção
@@ -227,7 +207,7 @@ export const useOrders = () => {
       // Tocar novamente após 300ms
       window.setTimeout(() => {
         playBellSound();
-      }, 300);
+      }, 400);
     } catch (error) {
       console.error('Erro ao tocar som de fallback:', error);
     }
@@ -275,7 +255,8 @@ export const useOrders = () => {
     error,
     createOrder,
     updateOrderStatus,
-    refetch: fetchOrders
+    refetch: fetchOrders,
+    setOrders
   };
 };
 
