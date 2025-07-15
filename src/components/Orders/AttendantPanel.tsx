@@ -29,6 +29,7 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({
   const [notificationsViewed, setNotificationsViewed] = useState<boolean>(false);
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const refreshTimerRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const settings = storeSettings;
@@ -76,11 +77,27 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({
   useEffect(() => {
     fetchInitialOrders();
     
+    // Set up automatic refresh every 2 minutes
+    refreshTimerRef.current = window.setInterval(() => {
+      console.log('🔄 Auto-refreshing orders (2-minute interval)');
+      fetchOrders().catch(error => {
+        console.error('❌ Error during auto-refresh:', error);
+      });
+    }, 2 * 60 * 1000); // 2 minutes in milliseconds
+    
     // Save session to localStorage
     localStorage.setItem(ATTENDANCE_SESSION_KEY, JSON.stringify({
       isAuthenticated: true,
       timestamp: Date.now()
     }));
+    
+    // Clean up timer on unmount
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+    };
   }, [fetchInitialOrders]);
 
   // Função para atualizar manualmente os pedidos
@@ -195,6 +212,12 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({
     return () => {
       supabase.removeChannel(channel);
       setIsSubscribed(false);
+      
+      // Also clear the refresh timer when component unmounts
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
     };
   }, [soundEnabled, setOrders, isSubscribed, orders]);
 
