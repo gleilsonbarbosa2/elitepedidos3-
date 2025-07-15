@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, RefreshCw } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useOrders } from '../../hooks/useOrders';
 import PermissionGuard from '../PermissionGuard';
@@ -21,13 +21,14 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({
   storeSettings 
 }) => {
   const { hasPermission } = usePermissions();
-  const { orders, loading, updateOrderStatus, setOrders } = useOrders();
+  const { orders, loading, updateOrderStatus, setOrders, fetchOrders } = useOrders();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [showManualOrderForm, setShowManualOrderForm] = useState(false);
   const [pendingOrdersCount, setPendingOrdersCount] = useState<number>(0);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [notificationsViewed, setNotificationsViewed] = useState<boolean>(false);
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const settings = storeSettings;
@@ -81,6 +82,19 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({
       timestamp: Date.now()
     }));
   }, [fetchInitialOrders]);
+
+  // Função para atualizar manualmente os pedidos
+  const handleRefreshOrders = async () => {
+    setRefreshing(true);
+    try {
+      await fetchOrders();
+      console.log('🔄 Pedidos atualizados manualmente');
+    } catch (error) {
+      console.error('❌ Erro ao atualizar pedidos:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Alternar som de notificação
   const toggleSound = () => {
@@ -278,18 +292,36 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({
   return (
     <PermissionGuard hasPermission={hasPermission('can_view_orders')} showMessage={true}>
       <div className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          {hasPermission('create_manual_order') && (
-            <div>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            {hasPermission('create_manual_order') && (
               <button
                 className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition-colors"
                 onClick={() => setShowManualOrderForm(true)}
               >
                 Novo Pedido Manual
               </button>
-            </div>
-          )}  
-          <div className="flex items-center gap-4">
+            )}
+            <button
+              onClick={handleRefreshOrders}
+              disabled={refreshing}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-blue-300 transition-colors flex items-center gap-2"
+              title="Atualizar pedidos"
+            >
+              {refreshing ? (
+                <>
+                  <RefreshCw size={18} className="animate-spin" />
+                  Atualizando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={18} />
+                  Atualizar Pedidos
+                </>
+              )}
+            </button>
+          </div>
+          <div className="flex items-center gap-3">
             <div className="text-sm text-gray-600">
               {orders.length > 0 ? `${orders.length} pedidos carregados` : 'Nenhum pedido'}
             </div>

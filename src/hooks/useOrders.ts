@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Order, OrderStatus, ChatMessage } from '../types/order';
 
+
 // Add global error handler for message channel errors
 if (typeof window !== 'undefined') {
   window.addEventListener('error', (event) => {
@@ -17,6 +18,7 @@ export const useOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const ordersRef = useRef<Order[]>([]);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -28,7 +30,9 @@ export const useOrders = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+      const newOrders = data || [];
+      setOrders(newOrders);
+      ordersRef.current = newOrders;
       console.log(`✅ ${data?.length || 0} pedidos carregados`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar pedidos');
@@ -222,13 +226,25 @@ export const useOrders = () => {
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload) => {
-          console.log('🔔 Novo pedido recebido via realtime:', payload);
-          // Check if the order already exists in the state to avoid duplicates
-          setOrders(prev => {
-            const exists = prev.some(order => order.id === payload.new.id);
-            if (exists) return prev;
-            return [payload.new as Order, ...prev];
-          });
+          console.log('🔔 Novo pedido recebido via realtime:', payload.new);
+          
+          // Use ref to get the latest orders array
+          const currentOrders = ordersRef.current;
+          
+          // Check if the order already exists to avoid duplicates
+          const exists = currentOrders.some(order => order.id === payload.new.id);
+          
+          if (!exists) {
+            // Create a new array with the new order at the top
+            const updatedOrders = [payload.new as Order, ...currentOrders];
+            
+            // Update both the state and the ref
+            setOrders(updatedOrders);
+            ordersRef.current = updatedOrders;
+            
+            console.log('✅ Novo pedido adicionado à lista:', payload.new.id);
+          }
+          
           // Tocar som de notificação
           playNotificationSound();
         }
@@ -236,10 +252,21 @@ export const useOrders = () => {
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'orders' },
         (payload) => {
-          console.log('🔄 Pedido atualizado via realtime:', payload);
-          setOrders(prev => prev.map(order => 
+          console.log('🔄 Pedido atualizado via realtime:', payload.new);
+          
+          // Use ref to get the latest orders array
+          const currentOrders = ordersRef.current;
+          
+          // Create a new array with the updated order
+          const updatedOrders = currentOrders.map(order => 
             order.id === payload.new.id ? payload.new as Order : order
-          ));
+          );
+          
+          // Update both the state and the ref
+          setOrders(updatedOrders);
+          ordersRef.current = updatedOrders;
+          
+          console.log('✅ Pedido atualizado na lista:', payload.new.id);
         }
       )
       .subscribe((status) => console.log('🔌 Status da inscrição de pedidos:', status));
@@ -253,10 +280,11 @@ export const useOrders = () => {
     orders,
     loading,
     error,
-    createOrder,
-    updateOrderStatus,
-    refetch: fetchOrders,
-    setOrders
+    fetchOrders,
+    createOrder, 
+    updateOrderStatus, 
+    setOrders,
+    refetch: fetchOrders
   };
 };
 
