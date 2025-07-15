@@ -12,6 +12,7 @@ const PDVPrintSettings: React.FC = () => {
     margin_top: 1,
     margin_bottom: 1,
     autoPrintOnDelivery: false,
+    autoPrintOnDelivery: false,
   });
 
   useEffect(() => {
@@ -23,6 +24,7 @@ const PDVPrintSettings: React.FC = () => {
           setPrinterSettings(prev => ({
             ...prev,
             ...parsed.printer_layout,
+            autoPrintOnDelivery: parsed.autoPrintOnDelivery ?? false,
             autoPrintOnDelivery: parsed.autoPrintOnDelivery ?? false,
           }));
         }
@@ -36,6 +38,7 @@ const PDVPrintSettings: React.FC = () => {
     const current = localStorage.getItem('pdv_settings');
     const parsed = current ? JSON.parse(current) : {};
     parsed.printer_layout = printerSettings;
+    parsed.autoPrintOnDelivery = printerSettings.autoPrintOnDelivery;
     parsed.autoPrintOnDelivery = printerSettings.autoPrintOnDelivery;
     localStorage.setItem('pdv_settings', JSON.stringify(parsed));
 

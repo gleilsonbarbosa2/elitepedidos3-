@@ -1,37 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { useOrders } from '../../hooks/useOrders';
+import { Bell } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useOrders } from '../../hooks/useOrders'; 
 import PermissionGuard from '../PermissionGuard';
 import OrderCard from './OrderCard';
 import ManualOrderForm from './ManualOrderForm';
 import { OrderStatus } from '../../types/order';
-import { 
-  Filter, 
-  Search, 
-  Bell, 
-  Package, 
-  Clock,
-  CheckCircle,
-  Truck,
-  XCircle,
-  ArrowLeft,
-  Settings,
-  Plus
-} from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface AttendantPanelProps {
   onBackToAdmin?: () => void;
+  storeSettings?: any;
 }
 
-const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin }) => {
+const AttendantPanel: React.FC<AttendantPanelProps> = ({ 
+  onBackToAdmin, 
+  storeSettings 
+}) => {
   const { hasPermission } = usePermissions();
-  const { orders, loading, updateOrderStatus } = useOrders();
+  const { orders, loading, updateOrderStatus, setOrders } = useOrders();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [showManualOrderForm, setShowManualOrderForm] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [lastOrderCount, setLastOrderCount] = useState(0);
   const [pendingOrdersCount, setPendingOrdersCount] = useState<number>(0);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [notificationsViewed, setNotificationsViewed] = useState<boolean>(false);
+
+  const settings = storeSettings;
 
   // Carregar configuração de som
   useEffect(() => {
@@ -62,28 +56,75 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin }) => {
     }
   };
 
-  // Efeito para tocar som quando novos pedidos chegarem
+  // Escutar novos pedidos em tempo real
   useEffect(() => {
-    // Contar pedidos pendentes
-    const currentPendingCount = orders.filter(order => order.status === 'pending').length;
-    setPendingOrdersCount(currentPendingCount);
-    console.log('📊 Pedidos pendentes:', currentPendingCount, 'Anterior:', lastOrderCount);
-    
-    // Se já tínhamos contagem anterior e agora temos mais pedidos pendentes, tocar som
-    if (lastOrderCount > 0 && currentPendingCount > lastOrderCount) {
-      console.log('🔔 Novos pedidos detectados!');
+    const channel = supabase
+      .channel('orders-panel-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+        },
+        async (payload) => {
+          console.log('🔔 Novo pedido recebido via realtime:', payload);
+          setOrders((prev) => {
+            const exists = prev.some((p) => p.id === payload.new.id);
+            if (exists) {
+              console.log('⚠️ Pedido já existe no estado, ignorando duplicata');
+              return prev;
+            }
+            console.log('✅ Adicionando novo pedido ao estado:', payload.new.id);
+            return [payload.new as any, ...prev];
+          });
+          setPendingOrdersCount((count) => count + 1);
+          setNotificationsViewed(false);
+          if (soundEnabled) {
+            console.log('🔊 Tocando som para novo pedido');
+            playNewOrderSound();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+        },
+        async (payload) => {
+          // Verificar se o pedido já existe no estado
+          const orderExists = orders.some(order => order.id === payload.new.id);
+          if (!orderExists) {
+            console.log('🆕 Pedido atualizado não encontrado no estado, adicionando:', payload.new.id);
+            setOrders(prev => [payload.new as any, ...prev]);
+          }
+          console.log('🔄 Pedido atualizado via realtime:', payload);
+          setOrders((prev) => 
+            prev.map((order) => order.id === payload.new.id ? payload.new as any : order)
+          );
+        }
+      )
+      .subscribe();
       
-      // Verificar se o som está habilitado
-      if (soundEnabled) {
-        playNewOrderSound();
-      } else {
-        console.log('🔕 Som de notificação desabilitado nas configurações');
-      }
+    // Inicializar solicitação de permissão para notificações
+    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission().then(permission => {
+        console.log('📱 Permissão de notificação:', permission);
+      });
     }
     
-    // Atualizar contagem para próxima verificação
-    setLastOrderCount(currentPendingCount);
-  }, [orders]);
+    // Forçar uma atualização inicial para garantir que temos os dados mais recentes
+    const fetchInitialOrders = async () => {
+      await supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(20);
+    };
+    fetchInitialOrders();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [soundEnabled, setOrders]);
 
   // Função para tocar som de novo pedido
   const playNewOrderSound = () => {
@@ -93,6 +134,7 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin }) => {
       const soundSettings = localStorage.getItem('orderSoundSettings');
       const settings = soundSettings ? JSON.parse(soundSettings) : { enabled: true, volume: 0.7, soundUrl: "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" };
       
+      console.log('🔊 Configurações de som:', settings);
       // Verificar se o som está habilitado
       if (!settings.enabled) {
         console.log('🔕 Som de notificação desabilitado nas configurações');
@@ -100,7 +142,7 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin }) => {
       }
       
       // Criar um elemento de áudio e tocar o som configurado
-      const audio = new Audio(settings.soundUrl);
+      const audio = new Audio(settings.soundUrl || "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
       audio.volume = settings.volume; // Ajustar volume conforme configuração
       audio.play().catch(e => {
         console.error('Erro ao tocar som de notificação:', e);
@@ -111,7 +153,7 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin }) => {
       // Mostrar notificação visual também, se suportado pelo navegador
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('Novo Pedido!', {
-          body: 'Um novo pedido está aguardando atendimento.',
+          body: 'Um novo pedido foi recebido e está aguardando atendimento.',
           icon: '/vite.svg'
         });
       }
@@ -154,215 +196,60 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin }) => {
     }
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    const matchesSearch = searchTerm === '' || 
-      order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer_phone.includes(searchTerm);
+  const filteredOrders = statusFilter === 'all'
+    ? orders
+    : orders.filter((o) => o.status === statusFilter);
     
-    return matchesStatus && matchesSearch;
-  });
-
-  const getStatusCount = (status: OrderStatus) => {
-    return orders.filter(order => order.status === status).length;
+  const handleBellClick = () => {
+    setNotificationsViewed(true);
+    setPendingOrdersCount(0);
   };
-
-  const statusOptions = [
-    { value: 'all' as const, label: 'Todos', count: orders.length, icon: Package },
-    { value: 'pending' as const, label: 'Pendentes', count: getStatusCount('pending'), icon: Clock },
-    { value: 'confirmed' as const, label: 'Confirmados', count: getStatusCount('confirmed'), icon: CheckCircle },
-    { value: 'preparing' as const, label: 'Em Preparo', count: getStatusCount('preparing'), icon: Package },
-    { value: 'out_for_delivery' as const, label: 'Saiu p/ Entrega', count: getStatusCount('out_for_delivery'), icon: Truck },
-    { value: 'ready_for_pickup' as const, label: 'Pronto p/ Retirada', count: getStatusCount('ready_for_pickup'), icon: Package },
-    { value: 'delivered' as const, label: 'Entregues', count: getStatusCount('delivered'), icon: CheckCircle },
-    { value: 'cancelled' as const, label: 'Cancelados', count: getStatusCount('cancelled'), icon: XCircle }
-  ];
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando pedidos...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <PermissionGuard hasPermission={hasPermission('can_view_orders')} showMessage={true}>
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {onBackToAdmin && (
-                  <button
-                    onClick={onBackToAdmin}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                    title="Voltar ao painel administrativo"
-                  >
-                    <ArrowLeft size={20} className="text-gray-600" />
-                  </button>
-                )}
-                <div className="bg-purple-100 rounded-full p-2">
-                  <Package size={24} className="text-purple-600" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-800">Painel de Atendimento</h1>
-                  <p className="text-gray-600">Gerencie pedidos e converse com clientes</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={toggleSound}
-                  className={`p-2 rounded-full transition-colors ${soundEnabled ? 'text-green-600 hover:bg-green-100' : 'text-gray-400 hover:bg-gray-100'}`}
-                  title={soundEnabled ? "Desativar som de notificações" : "Ativar som de notificações"}
-                >
-                  {soundEnabled ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M6.343 9.657a2 2 0 000 2.828l1.414 1.414a4 4 0 01-1.414 1.414l-1.414-1.414a2 2 0 00-2.828 0L2.1 14.9a2 2 0 000 2.828l1.414 1.414a2 2 0 002.828 0l1.414-1.414a4 4 0 011.414-1.414l-1.414-1.414a2 2 0 000-2.828L6.343 9.657z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15.414a2 2 0 002.828 0l1.414-1.414a4 4 0 011.414-1.414l-1.414-1.414a2 2 0 000-2.828L6.343 9.657a2 2 0 00-2.828 0L2.1 14.9a2 2 0 000 2.828l1.414 1.414a2 2 0 002.828 0l1.414-1.414a4 4 0 011.414-1.414l-1.414-1.414a2 2 0 000-2.828L6.343 9.657z" />
-                    </svg>
-                  )}
-                </button>
-                <button
-                  onClick={() => setShowManualOrderForm(true)}
-                  className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg transition-colors text-sm"
-                >
-                  <Plus size={16} />
-                  Pedido Manual
-                </button>
-                <div className="relative">
-                  <Bell size={20} className="text-gray-600" />
-                  {orders.filter(o => o.status === 'pending').length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
-                      {pendingOrdersCount}
-                    </span>
-                  )}
-                </div>
-                {onBackToAdmin && (
-                  <button
-                    onClick={onBackToAdmin}
-                    className="flex items-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors text-sm"
-                  >
-                    <Settings size={16} />
-                    Admin
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </header>
-
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar por nome, telefone ou ID do pedido..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-            </div>
-
-            {/* Status Filter */}
-            <div className="lg:w-64">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'all')}
-                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                {statusOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label} ({option.count})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Status Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mt-4">
-            {statusOptions.map(option => {
-              const Icon = option.icon;
-              const isActive = statusFilter === option.value;
-              
-              return (
-                <button
-                  key={option.value}
-                  onClick={() => setStatusFilter(option.value)}
-                  className={`p-3 rounded-lg border transition-all ${
-                    isActive
-                      ? 'bg-purple-100 border-purple-300 text-purple-700'
-                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon size={20} className="mx-auto mb-1" />
-                  <div className="text-xs font-medium">{option.label}</div>
-                  <div className="text-lg font-bold">{option.count}</div>
-                </button>
-              );
-            })}
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          {hasPermission('create_manual_order') && (
+            <button
+              className="bg-purple-600 text-white px-4 py-2 rounded"
+              onClick={() => setShowManualOrderForm(true)}
+            >
+              Novo Pedido Manual
+            </button>
+          )}  
+          <div className="relative cursor-pointer" onClick={handleBellClick}>
+            <Bell size={24} className="text-gray-700 hover:text-purple-600" />
+            {pendingOrdersCount > 0 && !notificationsViewed && (
+              <>
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full z-10">
+                  {pendingOrdersCount}
+                </span>
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 opacity-75 rounded-full animate-ping z-0" />
+              </>
+            )}
           </div>
         </div>
 
-        {/* Orders List */}
+        {showManualOrderForm && (
+          <ManualOrderForm
+            onClose={() => setShowManualOrderForm(false)}
+            onCreated={() => setShowManualOrderForm(false)}
+          />
+        )}
+
         <div className="space-y-4">
-          {filteredOrders.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-              <Package size={48} className="mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-600 mb-2">
-                Nenhum pedido encontrado
-              </h3>
-              <p className="text-gray-500">
-                {searchTerm || statusFilter !== 'all' 
-                  ? 'Tente ajustar os filtros de busca'
-                  : 'Aguardando novos pedidos...'
-                }
-              </p>
-            </div>
-          ) : (
-            filteredOrders.map(order => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                onStatusChange={updateOrderStatus}
-                isAttendant={true}
-              />
-            ))
-          )}
+          {filteredOrders.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              onStatusChange={updateOrderStatus}
+              storeSettings={settings}
+              isAttendant={true}
+            />
+          ))}
         </div>
       </div>
-      
-      {/* Manual Order Form */}
-      {showManualOrderForm && (
-        <ManualOrderForm 
-          onClose={() => setShowManualOrderForm(false)}
-          onOrderCreated={() => {
-            // Refresh orders after creating a new one
-            setTimeout(() => {
-              window.location.reload();
-            }, 1000);
-          }}
-        />
-      )}
-    </div>
     </PermissionGuard>
   );
 };
-
 export default AttendantPanel;

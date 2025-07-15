@@ -243,7 +243,12 @@ export const useOrders = () => {
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload) => {
           console.log('🔔 Novo pedido recebido via realtime:', payload);
-          setOrders(prev => [payload.new as Order, ...prev]);
+          // Check if the order already exists in the state to avoid duplicates
+          setOrders(prev => {
+            const exists = prev.some(order => order.id === payload.new.id);
+            if (exists) return prev;
+            return [payload.new as Order, ...prev];
+          });
           // Tocar som de notificação
           playNotificationSound();
         }
