@@ -32,9 +32,8 @@ const PDVDailySalesReport: React.FC = () => {
   const fetchDailySales = async () => {
     try {
       setLoading(true);
-      const offset = new Date().getTimezoneOffset() * 60000;
-      const start = new Date(new Date(date + "T00:00:00").getTime() - offset);
-      const end = new Date(new Date(date + "T23:59:59.999").getTime() - offset);
+      const start = new Date(`${date}T00:00:00-03:00`).toISOString();
+      const end = new Date(`${date}T23:59:59.999-03:00`).toISOString();
 
       const { data: pdvSales, error: pdvError } = await supabase
         .from('pdv_sales')
