@@ -23,8 +23,8 @@ const PDVSalesReport: React.FC = () => {
           *,
           pdv_sale_items(*)
         `)
-        .gte('created_at', `${dateRange.start}T00:00:00`)
-        .lte('created_at', `${dateRange.end}T23:59:59`)
+        .gte('created_at', `${dateRange.start}T00:00:00.000Z`)
+        .lte('created_at', `${dateRange.end}T23:59:59.999Z`)
         .eq('is_cancelled', false);
 
       if (salesError) throw salesError;
@@ -107,6 +107,33 @@ const PDVSalesReport: React.FC = () => {
     generateReport();
   }, []);
 
+  // Debug function to help troubleshoot date filtering issues
+  const debugDateFiltering = () => {
+    console.log('🔍 Debug date filtering:');
+    console.log(`Start date: ${dateRange.start}T00:00:00.000Z`);
+    console.log(`End date: ${dateRange.end}T23:59:59.999Z`);
+    console.log('Current timezone offset:', new Date().getTimezoneOffset());
+    
+    // Log a test query to see what's happening
+    supabase
+      .from('pdv_sales')
+      .select('created_at, total_amount')
+      .gte('created_at', `${dateRange.start}T00:00:00.000Z`)
+      .lte('created_at', `${dateRange.end}T23:59:59.999Z`)
+      .eq('is_cancelled', false)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Debug query error:', error);
+        } else {
+          console.log(`Found ${data?.length || 0} sales in date range`);
+          if (data && data.length > 0) {
+            console.log('First sale:', data[0]);
+            console.log('Last sale:', data[data.length - 1]);
+          }
+        }
+      });
+  };
+
   return (
     <PermissionGuard hasPermission={hasPermission('can_view_sales_report')} showMessage={true}>
       <div className="space-y-6">
@@ -168,13 +195,21 @@ const PDVSalesReport: React.FC = () => {
             </button>
 
             {report && (
-              <button
-                onClick={exportToCSV}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
-              >
-                <Download size={16} />
-                Exportar
-              </button>
+              <>
+                <button
+                  onClick={exportToCSV}
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+                >
+                  <Download size={16} />
+                  Exportar
+                </button>
+                <button
+                  onClick={debugDateFiltering}
+                  className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+                >
+                  Debug
+                </button>
+              </>
             )}
           </div>
         </div>
