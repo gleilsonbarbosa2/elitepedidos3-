@@ -17,6 +17,8 @@ import { useScale } from '../hooks/useScale';
 import { useOrders } from '../hooks/useOrders';
 import { useStoreHours } from '../hooks/useStoreHours';
 import { PDVOperator } from '../types/pdv';
+import { BarChart3 } from 'lucide-react';
+
 
 interface UnifiedAttendancePanelProps {
   operator?: PDVOperator;
