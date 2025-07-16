@@ -26,11 +26,13 @@ interface OrderState {
     name: string;
     price: number;
     size?: string;
+    size?: string;
     quantity: number;
     complements?: string[];
   }>;
   paymentMethod?: 'money' | 'pix' | 'card';
   total: number;
+  selectedComplements?: string[];
 }
 
 const AcaiChatbot: React.FC = () => {
@@ -46,7 +48,8 @@ const AcaiChatbot: React.FC = () => {
   const [orderState, setOrderState] = useState<OrderState>({
     stage: 'initial',
     selectedProducts: [],
-    total: 0
+    total: 0,
+    selectedComplements: []
   });
   const [currentProduct, setCurrentProduct] = useState<{
     name: string;
@@ -65,6 +68,9 @@ const AcaiChatbot: React.FC = () => {
     try {
       // Get the size from the product name
       const size = orderState.selectedProducts.find(p => p.name.includes('Açaí'))?.size || '';
+      
+      // Get selected complements from the order state
+      const selectedComplements = orderState.selectedComplements || [];
       
       // Determine the number of cremes and mix based on size from delivery system
       let numCremes = 2;
@@ -149,11 +155,11 @@ const AcaiChatbot: React.FC = () => {
       if (normalizedMessage.includes('açaí') || normalizedMessage.includes('acai')) {
         return "Você escolheu Açaí! Temos vários tamanhos:\n\n• 300g - R$ 13,99\n• 350g - R$ 15,99\n• 400g - R$ 18,99\n• 500g - R$ 22,99\n• 600g - R$ 26,99\n• 700g - R$ 31,99 (2 Cremes + 5 Mix)\n• 800g - R$ 34,99 (2 Cremes + 5 Mix)\n• 900g - R$ 38,99 (2 Cremes + 5 Mix)\n• 1kg - R$ 44,99 (2 Cremes + 5 Mix)\n\nQual tamanho você prefere?";
       } else if (normalizedMessage.includes('combo')) {
-        return "Você escolheu Combos! Nossas opções:\n\n• Combo Casal (1kg + Milkshake) - R$ 49,99\n• Combo 4 (900g) - R$ 42,99\n\nQual combo você prefere?";
+        return "Você escolheu Combos! Nossas opções:\n\n• Combo Casal (1kg + Milkshake) - R$ 49,99\n• Combo 1 (400g) - R$ 23,99\n• Combo 2 (500g) - R$ 26,99\n• Combo 3 (600g) - R$ 31,99\n• Combo 4 (900g) - R$ 42,99\n\nQual combo você prefere?";
       } else if (normalizedMessage.includes('milk') || normalizedMessage.includes('shake')) {
-        return "Você escolheu Milkshake! Temos:\n\n• 400ml - R$ 11,99\n• 500ml - R$ 12,99\n\nQual tamanho e sabor você prefere?";
+        return "Você escolheu Milkshake! Temos:\n\n• 400ml - R$ 11,99\n• 500ml - R$ 12,99\n\nSabores disponíveis: Morango, Chocolate, Baunilha, Ovomaltine\n\nQual tamanho e sabor você prefere?";
       } else if (normalizedMessage.includes('vitamina')) {
-        return "Você escolheu Vitamina! Temos:\n\n• Vitamina de Açaí 400ml - R$ 12,00\n• Vitamina de Açaí 500ml - R$ 15,00\n\nQual tamanho você prefere?";
+        return "Você escolheu Vitamina! Temos:\n\n• Vitamina de Açaí 400ml - R$ 12,00\n• Vitamina de Açaí 500ml - R$ 15,00\n\nOpções de complementos: Amendoim, Castanha, Cereja, Farinha Láctea, Granola, Leite Condensado, Mel\n\nQual tamanho você prefere?";
       }
       
       // Check for size selection
@@ -266,6 +272,28 @@ const AcaiChatbot: React.FC = () => {
   const processOrderStage = (userInput: string): string => {
     const input = userInput.toLowerCase().trim();
     
+    // Helper function to check complement limits
+    const checkComplementLimits = (type: string, items: string[], size?: string): string | null => {
+      // Determine limits based on size
+      let maxCremes = 2;
+      let maxMix = 3;
+      
+      if (size && (size.includes('700g') || size.includes('800g') || size.includes('900g') || size.includes('1kg') || size.includes('1 kg'))) {
+        maxMix = 5;
+      }
+      
+      // Check if exceeding limits
+      if (type === 'creme' && items.length > maxCremes) {
+        return `⚠️ Você selecionou ${items.length} cremes, mas o limite para este tamanho é ${maxCremes}. Por favor, selecione no máximo ${maxCremes} cremes.`;
+      }
+      
+      if (type === 'mix' && items.length > maxMix) {
+        return `⚠️ Você selecionou ${items.length} mix, mas o limite para este tamanho é ${maxMix}. Por favor, selecione no máximo ${maxMix} mix.`;
+      }
+      
+      return null;
+    };
+    
     switch (orderState.stage) {
       case 'delivery_info':
         // Determine delivery type
@@ -303,18 +331,18 @@ const AcaiChatbot: React.FC = () => {
       case 'product_selection':
         // Handle product selection
         if (input.includes('açaí') || input.includes('acai')) {
-          return generateResponse(input); // Use the new category handler
+          return "Você escolheu Açaí! Temos vários tamanhos:\n\n• 300g - R$ 13,99\n• 350g - R$ 15,99\n• 400g - R$ 18,99\n• 500g - R$ 22,99\n• 600g - R$ 26,99\n• 700g - R$ 31,99 (2 Cremes + 5 Mix)\n• 800g - R$ 34,99 (2 Cremes + 5 Mix)\n• 900g - R$ 38,99 (2 Cremes + 5 Mix)\n• 1kg - R$ 44,99 (2 Cremes + 5 Mix)\n\nQual tamanho você prefere?";
         } else if (input.includes('combo')) {
-          return generateResponse(input); // Use the new category handler
+          return "Você escolheu Combos! Nossas opções:\n\n• Combo Casal (1kg + Milkshake) - R$ 49,99\n• Combo 1 (400g) - R$ 23,99\n• Combo 2 (500g) - R$ 26,99\n• Combo 3 (600g) - R$ 31,99\n• Combo 4 (900g) - R$ 42,99\n\nQual combo você prefere?";
         } else if (input.includes('milk') || input.includes('shake')) {
-          return generateResponse(input); // Use the new category handler
+          return "Você escolheu Milkshake! Temos:\n\n• 400ml - R$ 11,99\n• 500ml - R$ 12,99\n\nSabores disponíveis: Morango, Chocolate, Baunilha, Ovomaltine\n\nQual tamanho e sabor você prefere?";
         } else if (input.includes('vitamina')) {
-          return generateResponse(input); // Use the new category handler
+          return "Você escolheu Vitamina! Temos:\n\n• Vitamina de Açaí 400ml - R$ 12,00\n• Vitamina de Açaí 500ml - R$ 15,00\n\nOpções de complementos: Amendoim, Castanha, Cereja, Farinha Láctea, Granola, Leite Condensado, Mel\n\nQual tamanho você prefere?";
         } else if (input.includes('300') || input.includes('400') || input.includes('500') || input.includes('700')) {
           return generateResponse(input); // Use the new size handler
         } else {
           // Check if this is the first time asking
-          return "O que você gostaria de pedir? Temos Açaí, Combos, Milkshakes e Vitaminas.";
+          return "O que você gostaria de pedir hoje? Temos Açaí, Combos, Milkshakes e Vitaminas.";
         }
         
       case 'add_more':
@@ -373,7 +401,17 @@ const AcaiChatbot: React.FC = () => {
           }
           
           // Process the new category selection
-          return processOrderStage(userInput);
+          if (input.includes('açaí') || input.includes('acai')) {
+            return "Você escolheu Açaí! Temos vários tamanhos:\n\n• 300g - R$ 13,99\n• 350g - R$ 15,99\n• 400g - R$ 18,99\n• 500g - R$ 22,99\n• 600g - R$ 26,99\n• 700g - R$ 31,99 (2 Cremes + 5 Mix)\n• 800g - R$ 34,99 (2 Cremes + 5 Mix)\n• 900g - R$ 38,99 (2 Cremes + 5 Mix)\n• 1kg - R$ 44,99 (2 Cremes + 5 Mix)\n\nQual tamanho você prefere?";
+          } else if (input.includes('combo')) {
+            return "Você escolheu Combos! Nossas opções:\n\n• Combo Casal (1kg + Milkshake) - R$ 49,99\n• Combo 1 (400g) - R$ 23,99\n• Combo 2 (500g) - R$ 26,99\n• Combo 3 (600g) - R$ 31,99\n• Combo 4 (900g) - R$ 42,99\n\nQual combo você prefere?";
+          } else if (input.includes('milk') || input.includes('shake')) {
+            return "Você escolheu Milkshake! Temos:\n\n• 400ml - R$ 11,99\n• 500ml - R$ 12,99\n\nSabores disponíveis: Morango, Chocolate, Baunilha, Ovomaltine\n\nQual tamanho e sabor você prefere?";
+          } else if (input.includes('vitamina')) {
+            return "Você escolheu Vitamina! Temos:\n\n• Vitamina de Açaí 400ml - R$ 12,00\n• Vitamina de Açaí 500ml - R$ 15,00\n\nOpções de complementos: Amendoim, Castanha, Cereja, Farinha Láctea, Granola, Leite Condensado, Mel\n\nQual tamanho você prefere?";
+          } else {
+            return "O que mais você gostaria de adicionar?";
+          }
         } else {
           return "Por favor, digite 'sim' para adicionar mais produtos ou 'continuar' para prosseguir com os complementos.";
         }
@@ -381,6 +419,9 @@ const AcaiChatbot: React.FC = () => {
       case 'complements':
         // Process complements selection
         if (input.includes('creme')) {
+          // Get the selected açaí size
+          const selectedSize = orderState.selectedProducts.find(p => p.name.includes('Açaí'))?.size || '';
+          
           return "Você escolheu adicionar cremes! Quais cremes você gostaria? (Máximo de 2)\n\n• Creme de Cupuaçu\n• Creme de Morango\n• Creme de Ninho\n• Creme de Nutela\n• Creme de Maracujá\n• Creme de Paçoca\n• Creme de Ovomaltine\n• Creme de Coco\n• Creme Morangotela\n• Creme de Pistache\n\nDigite os nomes dos cremes que deseja ou 'continuar' para prosseguir.";
         } else if (input.includes('mix')) {
           const size = orderState.selectedProducts.find(p => p.name.includes('Açaí'))?.size || '';
@@ -401,6 +442,51 @@ const AcaiChatbot: React.FC = () => {
           });
           
           return `Pedido anotado! O total é ${formatPrice(orderState.total)}.\n\nQual a forma de pagamento?\n• Dinheiro\n• PIX\n• Cartão`;
+        } else if (input.includes('nutela') || input.includes('ninho') || input.includes('morango') || 
+                  input.includes('cupuaçu') || input.includes('maracujá') || input.includes('paçoca') || 
+                  input.includes('ovomaltine') || input.includes('coco') || input.includes('morangotela') || 
+                  input.includes('pistache')) {
+          // User is selecting cremes
+          const selectedSize = orderState.selectedProducts.find(p => p.name.includes('Açaí'))?.size || '';
+          const maxCremes = 2;
+          
+          // Extract cremes from input
+          const cremeKeywords = ['nutela', 'ninho', 'morango', 'cupuaçu', 'maracujá', 'paçoca', 'ovomaltine', 'coco', 'morangotela', 'pistache'];
+          const selectedCremes = cremeKeywords.filter(creme => input.includes(creme));
+          
+          // Check if exceeding limit
+          if (selectedCremes.length > maxCremes) {
+            return `⚠️ Você selecionou ${selectedCremes.length} cremes, mas o limite para este tamanho é ${maxCremes}. Por favor, selecione no máximo ${maxCremes} cremes.`;
+          }
+          
+          return `Você selecionou ${selectedCremes.length} cremes: ${selectedCremes.join(', ')}. Deseja adicionar mix também? Digite 'mix' para adicionar ou 'continuar' para prosseguir.`;
+        } else if (input.includes('castanha') || input.includes('cereja') || input.includes('chocoball') || 
+                  input.includes('granola') || input.includes('granulado') || input.includes('leite condensado') || 
+                  input.includes('morango') || input.includes('paçoca') || input.includes('leite em pó') || 
+                  input.includes('uva') || input.includes('kiwi') || input.includes('jujuba') || 
+                  input.includes('marshmallow') || input.includes('m&m') || input.includes('sucrilho') || 
+                  input.includes('tapioca') || input.includes('canudo') || input.includes('ovomaltine')) {
+          // User is selecting mix
+          const selectedSize = orderState.selectedProducts.find(p => p.name.includes('Açaí'))?.size || '';
+          let maxMix = 3;
+          
+          if (selectedSize.includes('700g') || selectedSize.includes('800g') || selectedSize.includes('900g') || 
+              selectedSize.includes('1kg') || selectedSize.includes('1 kg')) {
+            maxMix = 5;
+          }
+          
+          // Extract mix from input
+          const mixKeywords = ['castanha', 'cereja', 'chocoball', 'granola', 'granulado', 'leite condensado', 
+                              'morango', 'paçoca', 'leite em pó', 'uva', 'kiwi', 'jujuba', 'marshmallow', 
+                              'm&m', 'sucrilho', 'tapioca', 'canudo', 'ovomaltine'];
+          const selectedMix = mixKeywords.filter(mix => input.includes(mix));
+          
+          // Check if exceeding limit
+          if (selectedMix.length > maxMix) {
+            return `⚠️ Você selecionou ${selectedMix.length} mix, mas o limite para este tamanho é ${maxMix}. Por favor, selecione no máximo ${maxMix} mix.`;
+          }
+          
+          return `Você selecionou ${selectedMix.length} mix: ${selectedMix.join(', ')}. Digite 'continuar' para prosseguir.`;
         } else {
           const size = orderState.selectedProducts.find(p => p.name.includes('Açaí'))?.size || '';
           let maxCremes = 2;
@@ -442,9 +528,33 @@ const AcaiChatbot: React.FC = () => {
       case 'confirmation':
         // Confirm order
         if (input.includes('sim') || input.includes('confirmo') || input.includes('ok')) {
+          // Store the selected complements in the order
+          const selectedCremes = [];
+          const selectedMix = [];
+          
+          // Extract complements from the conversation
+          for (let i = 0; i < messages.length; i++) {
+            const message = messages[i].text.toLowerCase();
+            
+            if (message.includes('você selecionou') && message.includes('cremes:')) {
+              const match = message.match(/você selecionou \d+ cremes: (.*?)\./i);
+              if (match && match[1]) {
+                selectedCremes.push(...match[1].split(', '));
+              }
+            }
+            
+            if (message.includes('você selecionou') && message.includes('mix:')) {
+              const match = message.match(/você selecionou \d+ mix: (.*?)\./i);
+              if (match && match[1]) {
+                selectedMix.push(...match[1].split(', '));
+              }
+            }
+          }
+          
           setOrderState({
             stage: 'complete',
-            ...orderState
+            ...orderState,
+            selectedComplements: [...selectedCremes, ...selectedMix]
           });
           
           // Create the actual order in the system
@@ -494,7 +604,8 @@ const AcaiChatbot: React.FC = () => {
     setOrderState({
       stage: 'initial',
       selectedProducts: [],
-      total: 0
+      total: 0,
+      selectedComplements: []
     });
     setCurrentProduct(null);
   };
@@ -517,10 +628,10 @@ const AcaiChatbot: React.FC = () => {
         if (addressMatch || nameMatch || phoneMatch) {
           setOrderState(prev => ({
             ...prev,
-            customerAddress: addressMatch ? addressMatch[1].trim() : prev.customerAddress,
-            customerName: nameMatch ? nameMatch[1].trim() : prev.customerName,
-            customerPhone: phoneMatch ? phoneMatch[1].trim() : prev.customerPhone,
-            stage: 'product_selection'
+            complements: selectedComplements.map(comp => ({
+              name: comp,
+              price: 0
+            }))
           }));
         }
       }
@@ -754,7 +865,7 @@ const AcaiChatbot: React.FC = () => {
                         setInput("Combo");
                         handleSendMessage();
                       }}
-                      className="w-full text-left px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm transition-colors"
+                      className="w-full text-left px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm transition-colors"
                     >
                       🍨 Combos
                     </button>
@@ -764,7 +875,7 @@ const AcaiChatbot: React.FC = () => {
                         setInput("Milkshake");
                         handleSendMessage();
                       }}
-                      className="w-full text-left px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm transition-colors"
+                      className="w-full text-left px-3 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 rounded-lg text-sm transition-colors"
                     >
                       🥤 Milkshakes
                     </button>
@@ -774,7 +885,7 @@ const AcaiChatbot: React.FC = () => {
                         setInput("Vitamina");
                         handleSendMessage();
                       }}
-                      className="w-full text-left px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm transition-colors"
+                      className="w-full text-left px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm transition-colors"
                     >
                       🍓 Vitaminas
                     </button>
@@ -785,7 +896,8 @@ const AcaiChatbot: React.FC = () => {
                 {messages.length > 0 && 
                  messages[messages.length - 1]?.sender === 'bot' && 
                  (messages[messages.length - 1]?.text.includes("Qual tamanho você prefere") || 
-                  messages[messages.length - 1]?.text.includes("Temos vários tamanhos")) && 
+                  messages[messages.length - 1]?.text.includes("Temos vários tamanhos") || 
+                  messages[messages.length - 1]?.text.includes("Qual combo você prefere")) && 
                  messages[messages.length - 1]?.text.includes("Açaí") && 
                  !isTyping && (
                   <div className="mt-3 grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
@@ -877,6 +989,140 @@ const AcaiChatbot: React.FC = () => {
                       className="text-left px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm transition-colors"
                     >
                       🍧 1kg - R$ 44,99
+                    </button>
+                  </div>
+                )}
+                
+                {/* Combo selection quick replies */}
+                {messages.length > 0 && 
+                 messages[messages.length - 1]?.sender === 'bot' && 
+                 messages[messages.length - 1]?.text.includes("Qual combo você prefere") && 
+                 !isTyping && (
+                  <div className="mt-3 grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                    <button 
+                      onClick={() => {
+                        setInput("Combo Casal");
+                        handleSendMessage();
+                      }}
+                      className="text-left px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm transition-colors"
+                    >
+                      🍨 Combo Casal (1kg + Milkshake) - R$ 49,99
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setInput("Combo 1");
+                        handleSendMessage();
+                      }}
+                      className="text-left px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm transition-colors"
+                    >
+                      🍨 Combo 1 (400g) - R$ 23,99
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setInput("Combo 2");
+                        handleSendMessage();
+                      }}
+                      className="text-left px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm transition-colors"
+                    >
+                      🍨 Combo 2 (500g) - R$ 26,99
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setInput("Combo 3");
+                        handleSendMessage();
+                      }}
+                      className="text-left px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm transition-colors"
+                    >
+                      🍨 Combo 3 (600g) - R$ 31,99
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setInput("Combo 4");
+                        handleSendMessage();
+                      }}
+                      className="text-left px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm transition-colors"
+                    >
+                      🍨 Combo 4 (900g) - R$ 42,99
+                    </button>
+                  </div>
+                )}
+                
+                {/* Milkshake selection quick replies */}
+                {messages.length > 0 && 
+                 messages[messages.length - 1]?.sender === 'bot' && 
+                 messages[messages.length - 1]?.text.includes("Você escolheu Milkshake") && 
+                 !isTyping && (
+                  <div className="mt-3 grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                    <button 
+                      onClick={() => {
+                        setInput("Milkshake 400ml Morango");
+                        handleSendMessage();
+                      }}
+                      className="text-left px-3 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 rounded-lg text-sm transition-colors"
+                    >
+                      🍓 400ml Morango
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setInput("Milkshake 400ml Chocolate");
+                        handleSendMessage();
+                      }}
+                      className="text-left px-3 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 rounded-lg text-sm transition-colors"
+                    >
+                      🍫 400ml Chocolate
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setInput("Milkshake 500ml Morango");
+                        handleSendMessage();
+                      }}
+                      className="text-left px-3 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 rounded-lg text-sm transition-colors"
+                    >
+                      🍓 500ml Morango
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setInput("Milkshake 500ml Chocolate");
+                        handleSendMessage();
+                      }}
+                      className="text-left px-3 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 rounded-lg text-sm transition-colors"
+                    >
+                      🍫 500ml Chocolate
+                    </button>
+                  </div>
+                )}
+                
+                {/* Vitamina selection quick replies */}
+                {messages.length > 0 && 
+                 messages[messages.length - 1]?.sender === 'bot' && 
+                 messages[messages.length - 1]?.text.includes("Você escolheu Vitamina") && 
+                 !isTyping && (
+                  <div className="mt-3 grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                    <button 
+                      onClick={() => {
+                        setInput("Vitamina 400ml");
+                        handleSendMessage();
+                      }}
+                      className="text-left px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm transition-colors"
+                    >
+                      🥤 Vitamina 400ml - R$ 12,00
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setInput("Vitamina 500ml");
+                        handleSendMessage();
+                      }}
+                      className="text-left px-3 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm transition-colors"
+                    >
+                      🥤 Vitamina 500ml - R$ 15,00
                     </button>
                   </div>
                 )}
@@ -1010,4 +1256,3 @@ const AcaiChatbot: React.FC = () => {
 };
 
 export default AcaiChatbot;
-    
