@@ -1,3 +1,7 @@
+// Código limpo e retificado para o componente PDVSalesReport
+// Todos os conflitos de merge foram resolvidos mantendo a versão mais recente
+// com a lógica simplificada de filtro de data usando strings ISO completas
+
 import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, DollarSign, Calendar, Download, Package } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -7,7 +11,11 @@ import PermissionGuard from '../PermissionGuard';
 const PDVSalesReport: React.FC = () => {
   const { hasPermission } = usePermissions();
   const [dateRange, setDateRange] = useState({
-    start: new Date().toISOString().split('T')[0],
+    start: (() => {
+      const date = new Date();
+      date.setDate(date.getDate() - 30);
+      return date.toISOString().split('T')[0];
+    })(),
     end: new Date().toISOString().split('T')[0]
   });
   const [report, setReport] = useState<any | null>(null);
@@ -16,27 +24,23 @@ const PDVSalesReport: React.FC = () => {
   const generateReport = async () => {
     setLoading(true);
     try {
-      // Buscar vendas do período
+      const startDate = `${dateRange.start}T00:00:00`;
+      const endDate = `${dateRange.end}T23:59:59`;
+
       const { data: sales, error: salesError } = await supabase
         .from('pdv_sales')
-        .select(`
-          *,
-          pdv_sale_items(*)
-        `)
-        .gte('created_at', `${dateRange.start}T00:00:00.000Z`)
-        .lte('created_at', `${dateRange.end}T23:59:59.999Z`)
+        .select('*, pdv_sale_items(*)')
+        .gte('created_at', startDate)
+        .lte('created_at', endDate)
         .eq('is_cancelled', false);
 
       if (salesError) throw salesError;
 
-      // Calcular estatísticas
       const totalSales = sales?.length || 0;
       const totalAmount = sales?.reduce((sum, sale) => sum + sale.total_amount, 0) || 0;
       const avgTicket = totalSales > 0 ? totalAmount / totalSales : 0;
 
-      // Produtos mais vendidos
       const productStats: Record<string, { quantity: number; revenue: number }> = {};
-      
       sales?.forEach(sale => {
         sale.pdv_sale_items?.forEach((item: any) => {
           if (!productStats[item.product_name]) {
@@ -63,7 +67,6 @@ const PDVSalesReport: React.FC = () => {
         avg_ticket: avgTicket,
         top_products: topProducts
       });
-
     } catch (err) {
       console.error('Erro ao gerar relatório:', err);
       alert('Erro ao gerar relatório');
@@ -103,41 +106,22 @@ const PDVSalesReport: React.FC = () => {
     link.click();
   };
 
+  const debugDateFiltering = () => {
+    const startDate = `${dateRange.start}T00:00:00`;
+    const endDate = `${dateRange.end}T23:59:59`;
+    console.log('🔍 Depuração de datas:');
+    console.log(`Data inicial: ${startDate}`);
+    console.log(`Data final:   ${endDate}`);
+  };
+
   useEffect(() => {
     generateReport();
   }, []);
 
-  // Debug function to help troubleshoot date filtering issues
-  const debugDateFiltering = () => {
-    console.log('🔍 Debug date filtering:');
-    console.log(`Start date: ${dateRange.start}T00:00:00.000Z`);
-    console.log(`End date: ${dateRange.end}T23:59:59.999Z`);
-    console.log('Current timezone offset:', new Date().getTimezoneOffset());
-    
-    // Log a test query to see what's happening
-    supabase
-      .from('pdv_sales')
-      .select('created_at, total_amount')
-      .gte('created_at', `${dateRange.start}T00:00:00.000Z`)
-      .lte('created_at', `${dateRange.end}T23:59:59.999Z`)
-      .eq('is_cancelled', false)
-      .then(({ data, error }) => {
-        if (error) {
-          console.error('Debug query error:', error);
-        } else {
-          console.log(`Found ${data?.length || 0} sales in date range`);
-          if (data && data.length > 0) {
-            console.log('First sale:', data[0]);
-            console.log('Last sale:', data[data.length - 1]);
-          }
-        }
-      });
-  };
-
   return (
     <PermissionGuard hasPermission={hasPermission('can_view_sales_report')} showMessage={true}>
       <div className="space-y-6">
-        {/* Header */}
+        {/* Cabeçalho */}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
@@ -148,177 +132,143 @@ const PDVSalesReport: React.FC = () => {
           </div>
         </div>
 
-      {/* Filtros */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <div className="flex flex-col sm:flex-row gap-4 items-end">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Data Inicial
-            </label>
-            <input
-              type="date"
-              value={dateRange.start}
-              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-          
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Data Final
-            </label>
-            <input
-              type="date"
-              value={dateRange.end}
-              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
+        {/* Filtros */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Data Inicial</label>
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={generateReport}
-              disabled={loading}
-              className="bg-purple-500 hover:bg-purple-600 disabled:bg-purple-300 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
-            >
-              {loading ? (
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Data Final</label>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={generateReport}
+                disabled={loading}
+                className="bg-purple-500 hover:bg-purple-600 disabled:bg-purple-300 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                {loading ? 'Gerando...' : (<><Calendar size={16} /> Gerar Relatório</>)}
+              </button>
+
+              {report && (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Gerando...
-                </>
-              ) : (
-                <>
-                  <Calendar size={16} />
-                  Gerar Relatório
+                  <button
+                    onClick={exportToCSV}
+                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <Download size={16} /> Exportar
+                  </button>
+                  <button
+                    onClick={debugDateFiltering}
+                    className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    Debug
+                  </button>
                 </>
               )}
-            </button>
-
-            {report && (
-              <>
-                <button
-                  onClick={exportToCSV}
-                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  <Download size={16} />
-                  Exportar
-                </button>
-                <button
-                  onClick={debugDateFiltering}
-                  className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  Debug
-                </button>
-              </>
-            )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Relatório */}
-      {report && (
-        <>
-          {/* Cards de Resumo */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-100 rounded-full p-3">
-                  <Package size={24} className="text-blue-600" />
+        {/* Relatório */}
+        {report && (
+          <>
+            {/* Resumo */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-100 rounded-full p-3">
+                    <Package size={24} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Total de Vendas</p>
+                    <p className="text-2xl font-bold text-gray-800">{report.total_sales}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">Total de Vendas</p>
-                  <p className="text-2xl font-bold text-gray-800">{report.total_sales}</p>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="flex items-center gap-3">
+                  <div className="bg-green-100 rounded-full p-3">
+                    <DollarSign size={24} className="text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Faturamento Total</p>
+                    <p className="text-2xl font-bold text-gray-800">{formatPrice(report.total_amount)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <div className="flex items-center gap-3">
+                  <div className="bg-purple-100 rounded-full p-3">
+                    <TrendingUp size={24} className="text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Ticket Médio</p>
+                    <p className="text-2xl font-bold text-gray-800">{formatPrice(report.avg_ticket)}</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-green-100 rounded-full p-3">
-                  <DollarSign size={24} className="text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Faturamento Total</p>
-                  <p className="text-2xl font-bold text-gray-800">{formatPrice(report.total_amount)}</p>
-                </div>
+            {/* Produtos Mais Vendidos */}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden mt-6">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-800">Produtos Mais Vendidos</h3>
               </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-purple-100 rounded-full p-3">
-                  <TrendingUp size={24} className="text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Ticket Médio</p>
-                  <p className="text-2xl font-bold text-gray-800">{formatPrice(report.avg_ticket)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Produtos Mais Vendidos */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">Produtos Mais Vendidos</h3>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left py-3 px-6 font-medium text-gray-700">Posição</th>
-                    <th className="text-left py-3 px-6 font-medium text-gray-700">Produto</th>
-                    <th className="text-left py-3 px-6 font-medium text-gray-700">Quantidade</th>
-                    <th className="text-left py-3 px-6 font-medium text-gray-700">Faturamento</th>
-                    <th className="text-left py-3 px-6 font-medium text-gray-700">% do Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {report.top_products.map((product, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                            index === 0 ? 'bg-yellow-500' :
-                            index === 1 ? 'bg-gray-400' :
-                            index === 2 ? 'bg-orange-500' :
-                            'bg-gray-300'
-                          }`}>
-                            {index + 1}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="font-medium text-gray-800">{product.product_name}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-gray-700">{product.quantity}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="font-semibold text-green-600">{formatPrice(product.revenue)}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-gray-700">
-                          {((product.revenue / report.total_amount) * 100).toFixed(1)}%
-                        </span>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left py-3 px-6 font-medium text-gray-700">Posição</th>
+                      <th className="text-left py-3 px-6 font-medium text-gray-700">Produto</th>
+                      <th className="text-left py-3 px-6 font-medium text-gray-700">Quantidade</th>
+                      <th className="text-left py-3 px-6 font-medium text-gray-700">Faturamento</th>
+                      <th className="text-left py-3 px-6 font-medium text-gray-700">% do Total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {report.top_products.length === 0 && (
-              <div className="text-center py-12">
-                <BarChart3 size={48} className="mx-auto text-gray-300 mb-4" />
-                <p className="text-gray-500">Nenhuma venda encontrada no período</p>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {report.top_products.map((product, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                              index === 0 ? 'bg-yellow-500' :
+                              index === 1 ? 'bg-gray-400' :
+                              index === 2 ? 'bg-orange-500' :
+                              'bg-gray-300'}`}>{index + 1}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 font-medium text-gray-800">{product.product_name}</td>
+                        <td className="py-4 px-6 text-gray-700">{product.quantity}</td>
+                        <td className="py-4 px-6 font-semibold text-green-600">{formatPrice(product.revenue)}</td>
+                        <td className="py-4 px-6 text-gray-700">
+                          {((product.revenue / report.total_amount) * 100).toFixed(1)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
-        </>
-      )}
-    </div>
+            </div>
+          </>
+        )}
+      </div>
     </PermissionGuard>
   );
 };

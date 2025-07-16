@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Calendar, Clock, Tag, Store, DollarSign, Printer, Save, RefreshCw, AlertCircle, MessageCircle } from 'lucide-react';
+import { Settings, Calendar, Clock, Tag, Store, DollarSign, Printer, Save, RefreshCw, AlertCircle } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions';
 import PermissionGuard from '../PermissionGuard';
 import { useStoreHours } from '../../hooks/useStoreHours';
-import PDVChatSettings from './PDVChatSettings';
 import { StoreHours } from '../../types/store';
 import ProductScheduleModal from '../Admin/ProductScheduleModal';
 import { products } from '../../data/products';
@@ -14,7 +13,7 @@ const PDVSettings: React.FC = () => {
   const { storeHours, storeSettings, updateStoreHours, updateStoreSettings, getStoreStatus } = useStoreHours();
   const { getProductSchedule, saveProductSchedule } = useProductScheduling();
   
-  const [activeTab, setActiveTab] = useState<'store' | 'delivery' | 'promotions' | 'printer' | 'chat'>('store');
+  const [activeTab, setActiveTab] = useState<'store' | 'delivery' | 'promotions' | 'printer'>('store');
   const [localHours, setLocalHours] = useState<Record<number, Partial<StoreHours>>>({});
   const [localSettings, setLocalSettings] = useState({
     store_name: '',
@@ -38,8 +37,7 @@ const PDVSettings: React.FC = () => {
     scale: 1,
     margin_left: 0,
     margin_top: 1,
-    margin_bottom: 1,
-	auto_print_delivery: false // ✅ adicione isso se ainda não tiver
+    margin_bottom: 1
   });
 
   // Inicializar configurações locais quando os dados carregarem
@@ -287,17 +285,6 @@ const PDVSettings: React.FC = () => {
             >
               <Printer size={18} />
               Impressora
-            </button>
-            <button
-              onClick={() => setActiveTab('chat')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                activeTab === 'chat'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <MessageCircle size={18} />
-              Chat
             </button>
           </div>
         </div>
@@ -700,21 +687,6 @@ const PDVSettings: React.FC = () => {
               <Printer size={20} className="text-purple-600" />
               Configurações de Impressora
             </h3>
-			
-			{/* Checkbox para impressão automática */}
-    <div className="mb-4">
-      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-        <input
-          type="checkbox"
-          checked={printerSettings.auto_print_delivery}
-          onChange={(e) =>
-            setPrinterSettings(prev => ({ ...prev, auto_print_delivery: e.target.checked }))
-          }
-          className="rounded border-gray-300 text-purple-600 shadow-sm focus:ring-purple-500"
-        />
-        Imprimir automaticamente ao receber pedido do delivery
-      </label>
-    </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -740,6 +712,7 @@ const PDVSettings: React.FC = () => {
                   type="number"
                   min="1"
                   max="5"
+                  step="0.5"
                   value={printerSettings.font_size}
                   onChange={(e) => setPrinterSettings(prev => ({ ...prev, font_size: parseFloat(e.target.value) || 2 }))}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -802,20 +775,6 @@ const PDVSettings: React.FC = () => {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
-            
-            <div className="md:col-span-2">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={printerSettings.auto_print_delivery}
-                  onChange={(e) => setPrinterSettings(prev => ({ ...prev, auto_print_delivery: e.target.checked }))}
-                  className="h-4 w-4 text-purple-600 border-gray-300 rounded"
-                />
-                <span className="text-sm text-gray-700">Imprimir automaticamente ao receber pedido do delivery</span>
-              </label>
-            </div>
-			  
-			  
             </div>
 
             <div className="mt-6 flex justify-end">
@@ -827,12 +786,6 @@ const PDVSettings: React.FC = () => {
                 Salvar Configurações de Impressora
               </button>
             </div>
-          </div>
-        )}
-
-        {activeTab === 'chat' && (
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <PDVChatSettings />
           </div>
         )}
 

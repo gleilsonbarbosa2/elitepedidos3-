@@ -1,114 +1,56 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { Product, ComplementGroup, Complement as ComplementType, ScheduledDays } from '../../types/product';
-import { useImageUpload } from '../../hooks/useImageUpload';
+import React, { useState } from 'react';
+import { products, categoryNames } from '../../data/products';
+import { Product } from '../../types/product';
+import ProductScheduleModal from './ProductScheduleModal';
 import ImageUploadModal from './ImageUploadModal';
+import { useProductScheduling } from '../../hooks/useProductScheduling';
+import { useImageUpload } from '../../hooks/useImageUpload';
+import { 
+  Package, 
+  Plus, 
+  Edit3, 
+  Trash2, 
+  Save, 
+  X, 
+  Search,
+  Filter,
+  Calendar,
+  Image as ImageIcon,
+  Eye,
+  EyeOff,
+  Clock,
+  Star
+} from 'lucide-react';
 
-interface ProductsPanelProps {
-  onClose?: () => void;
-}
-
-// Rename to avoid conflict with the imported type
-interface Complement extends ComplementType {
-  isActive?: boolean;
-}
-
-export default function ProductsPanel({ onClose }: ProductsPanelProps) {
-  const [productList, setProductList] = useState<Product[]>([]);
+const ProductsPanel: React.FC = () => {
+  const [localProducts, setLocalProducts] = useState<Product[]>(products);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [showImageUpload, setShowImageUpload] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [productImages, setProductImages] = useState<Record<string, string>>({});
-  const [showDaySelector, setShowDaySelector] = useState(false);
-  const { getProductImage } = useImageUpload();
+  const [categoryFilter, setCategoryFilter] = useState<Product['category'] | 'all'>('all');
+  const [saving, setSaving] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedProductForSchedule, setSelectedProductForSchedule] = useState<Product | null>(null);
 
-  const dayLabels = {
-    monday: 'Seg',
-    tuesday: 'Ter',
-    wednesday: 'Qua',
-    thursday: 'Qui',
-    friday: 'Sex',
-    saturday: 'Sáb',
-    sunday: 'Dom'
-  };
+  const { saveProductSchedule, getProductSchedule } = useProductScheduling();
+  const { saveImageToProduct, getProductImage } = useImageUpload();
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
+  const filteredProducts = localProducts.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         product.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
-  // Load product images
-  useEffect(() => {
-    const loadProductImages = async () => {
-      const images: Record<string, string> = {};
-      
-      for (const product of productList) {
-        try {
-          const imageUrl = await getProductImage(product.id);
-          if (imageUrl) {
-            images[product.id] = imageUrl;
-          }
-        } catch (error) {
-          console.error(`Error loading image for product ${product.id}:`, error);
-        }
-      }
-      
-      setProductImages(images);
-    };
-    
-    if (productList.length > 0) {
-      loadProductImages();
-    }
-  }, [productList, getProductImage]);
-
-  const loadProducts = async () => {
-    try {
-      // Load products from data/products.ts instead of database
-      const { products } = await import('../../data/products');
-      setProductList(products);
-    } catch (error) {
-      console.error('Error loading products:', error);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!editingProduct) return;
-
-    try {
-      // In a real implementation, this would save to a database
-      // For now, we'll just update the local state
-      if (isCreating) {
-        setProductList(prev => [...prev, editingProduct]);
-      } else {
-        setProductList(prev => 
-          prev.map(p => p.id === editingProduct.id ? editingProduct : p)
-        );
-      }
-      
-      alert(isCreating ? 'Produto criado com sucesso!' : 'Produto atualizado com sucesso!');
-      setEditingProduct(null);
-      setIsCreating(false);
-    } catch (error) {
-      console.error('Error saving product:', error);
-      alert('Erro ao salvar produto');
-    }
-  };
-
-  const handleDelete = async (productId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este produto?')) return;
-
-    try {
-      setProductList(prev => prev.filter(p => p.id !== productId));
-      alert('Produto excluído com sucesso!');
-    } catch (error) {
-      console.error('Error deleting product:', error);
-      alert('Erro ao excluir produto');
-    }
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(price);
   };
 
   const handleCreate = () => {
-    setIsCreating(true);
     setEditingProduct({
       id: `product-${Date.now()}`,
       name: '',
@@ -116,703 +58,569 @@ export default function ProductsPanel({ onClose }: ProductsPanelProps) {
       price: 0,
       description: '',
       image: 'https://images.pexels.com/photos/1092730/pexels-photo-1092730.jpeg?auto=compress&cs=tinysrgb&w=400',
-      complementGroups: [],
-      isActive: true,
-      scheduledDays: {
-        enabled: false,
-        days: {
-          monday: true,
-          tuesday: true,
-          wednesday: true,
-          thursday: true,
-          friday: true,
-          saturday: true,
-          sunday: true
-        },
-        startTime: '00:00',
-        endTime: '23:59'
-      }
+        imageUrl: imageUrl.substring(0, 50) + '...',
     });
+    setIsCreating(true);
   };
 
-  const addComplementGroup = () => {
+  const handleSave = async () => {
     if (!editingProduct) return;
-    
-    const newGroup: ComplementGroup = {
-      id: `group-${Date.now()}`,
-      name: 'Novo Grupo',
-      required: false,
-      minItems: 0,
-      maxItems: 1,
-      complements: []
-    };
-    
-    setEditingProduct({
-      ...editingProduct,
-      complementGroups: [...(editingProduct.complementGroups || []), newGroup]
-    });
+
+    console.log('💾 Iniciando salvamento do produto:', editingProduct.name, editingProduct.id);
+    setSaving(true);
+    try {
+      // Validar dados obrigatórios
+      if (!editingProduct.name.trim()) {
+        throw new Error('Nome do produto é obrigatório');
+      }
+      if (!editingProduct.description.trim()) {
+        throw new Error('Descrição do produto é obrigatória');
+      }
+
+      if (isCreating) {
+        console.log('➕ Criando novo produto...');
+        setLocalProducts(prev => [...prev, editingProduct]);
+      } else {
+        console.log('✏️ Atualizando produto existente...');
+        setLocalProducts(prev => prev.map(p => 
+          p.id === editingProduct.id ? editingProduct : p
+        ));
+      }
+      
+      // Salvar associação da imagem após salvar o produto
+      const hasCustomImage = editingProduct.image && 
+        !editingProduct.image.includes('pexels.com') && 
+        !editingProduct.image.includes('unsplash.com') &&
+        !editingProduct.image.includes('pexels.com');
+        
+      if (hasCustomImage) {
+        console.log('🖼️ Processando imagem personalizada...');
+        try {
+          // Clean the image URL before saving
+          const cleanImageUrl = editingProduct.image.split('?')[0];
+          const refreshedImageUrl = await saveImageToProduct(cleanImageUrl, editingProduct.id);
+          
+          // Atualizar estado local das imagens
+          setProductImages(prev => ({
+            ...prev,
+            [editingProduct.id]: refreshedImageUrl || editingProduct.image
+          }));
+          
+          console.log('✅ Imagem associada e estado atualizado');
+        } catch (imageError) {
+          console.error('❌ Erro ao associar imagem (produto salvo):', imageError);
+          // Mostrar aviso mas não falhar o salvamento do produto
+          alert('Produto salvo, mas houve erro ao associar a imagem. Tente novamente.');
+        }
+      } else {
+        console.log('📷 Usando imagem padrão (sem associação necessária)');
+      }
+      
+      setEditingProduct(null);
+      setIsCreating(false);
+      
+      // Mostrar feedback de sucesso
+      const successMessage = document.createElement('div');
+      successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2';
+      successMessage.innerHTML = `
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        Produto salvo com sucesso!
+      `;
+      document.body.appendChild(successMessage);
+      
+      setTimeout(() => {
+        if (document.body.contains(successMessage)) {
+          successMessage.remove();
+        }
+      }, 3000);
+      
+    } catch (error) {
+      console.error('💥 Erro ao salvar produto:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      alert(`Erro ao salvar produto: ${errorMessage}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const updateComplementGroup = (groupIndex: number, updates: Partial<ComplementGroup>) => {
-    if (!editingProduct || !editingProduct.complementGroups) return;
-    
-    const updatedGroups = [...editingProduct.complementGroups];
-    updatedGroups[groupIndex] = { ...updatedGroups[groupIndex], ...updates };
-    
-    setEditingProduct({
-      ...editingProduct,
-      complementGroups: updatedGroups
-    });
+  const handleCancel = () => {
+    setEditingProduct(null);
+    setIsCreating(false);
   };
 
-  const removeComplementGroup = (groupIndex: number) => {
-    if (!editingProduct || !editingProduct.complementGroups) return;
-    
-    const updatedGroups = editingProduct.complementGroups.filter((_, index) => index !== groupIndex);
-    
-    setEditingProduct({
-      ...editingProduct,
-      complementGroups: updatedGroups
-    });
+  const handleDelete = (id: string, name: string) => {
+    if (confirm(`Tem certeza que deseja excluir o produto "${name}"?`)) {
+      console.log('🗑️ Excluindo produto:', name);
+      setLocalProducts(prev => prev.filter(p => p.id !== id));
+    }
   };
 
-  const addComplement = (groupIndex: number) => {
-    if (!editingProduct || !editingProduct.complementGroups) return;
-    
-    const newComplement: Complement = {
-      id: `complement-${Date.now()}`,
-      name: 'Novo Complemento',
-      price: 0,
-      description: '',
-      isActive: true
-    };
-    
-    const updatedGroups = [...editingProduct.complementGroups];
-    updatedGroups[groupIndex].complements = [
-      ...updatedGroups[groupIndex].complements,
-      newComplement
-    ];
-    
-    setEditingProduct({
-      ...editingProduct,
-      complementGroups: updatedGroups
-    });
+  const handleToggleActive = (product: Product) => {
+    console.log('🔄 Alternando status do produto:', product.name);
+    setLocalProducts(prev => prev.map(p => 
+      p.id === product.id ? { ...p, isActive: !p.isActive } : p
+    ));
   };
 
-  const updateComplement = (groupIndex: number, complementIndex: number, updates: Partial<Complement>) => {
-    if (!editingProduct || !editingProduct.complementGroups) return;
-    
-    const updatedGroups = [...editingProduct.complementGroups];
-    const complement = updatedGroups[groupIndex].complements[complementIndex];
-    updatedGroups[groupIndex].complements[complementIndex] = {
-      ...complement,
-      ...updates
-    };
-    
-    setEditingProduct({
-      ...editingProduct,
-      complementGroups: updatedGroups
-    });
+  const handleScheduleProduct = (product: Product) => {
+    console.log('📅 Abrindo programação para:', product.name);
+    setSelectedProductForSchedule(product);
+    setShowScheduleModal(true);
   };
 
-  const removeComplement = (groupIndex: number, complementIndex: number) => {
-    if (!editingProduct || !editingProduct.complementGroups) return;
-    
-    const updatedGroups = [...editingProduct.complementGroups];
-    updatedGroups[groupIndex].complements = updatedGroups[groupIndex].complements.filter(
-      (_, index) => index !== complementIndex
-    );
-    
-    setEditingProduct({
-      ...editingProduct,
-      complementGroups: updatedGroups
-    });
+  const handleSaveSchedule = async (productId: string, scheduledDays: any) => {
+    try {
+      console.log('💾 Salvando programação do produto:', productId);
+      await saveProductSchedule(productId, scheduledDays);
+      setShowScheduleModal(false);
+      setSelectedProductForSchedule(null);
+    } catch (error) {
+      console.error('Erro ao salvar programação:', error);
+      alert('Erro ao salvar programação. Tente novamente.');
+    }
   };
 
-  const toggleDayAvailability = (day: keyof ScheduledDays['days']) => {
-    if (!editingProduct || !editingProduct.scheduledDays) return;
+  const handleImageSelect = (imageUrl: string) => {
+    console.log('🖼️ Imagem selecionada:', imageUrl.substring(0, 50) + '...');
+    if (editingProduct) {
+      // Store the image URL without any cache-busting parameters
+      const cleanUrl = imageUrl.split('?')[0];
+      setEditingProduct({ ...editingProduct, image: cleanUrl });
+      console.log('✅ Imagem atribuída ao produto:', editingProduct.name);
+    } else {
+      console.warn('⚠️ Nenhum produto em edição para receber a imagem');
+    }
+  };
+
+  const getProductScheduleStatus = (product: Product) => {
+    const schedule = getProductSchedule(product.id);
     
-    setEditingProduct({
-      ...editingProduct,
-      scheduledDays: {
-        ...editingProduct.scheduledDays,
-        days: {
-          ...editingProduct.scheduledDays.days,
-          [day]: !editingProduct.scheduledDays.days[day]
+    if (schedule?.enabled) {
+      const activeDays = Object.values(schedule.days).filter(Boolean).length;
+      return `Programado (${activeDays}/7 dias)`;
+    }
+    return 'Sempre disponível';
+  };
+
+  // Carregar imagem do produto do banco de dados
+  const [productImages, setProductImages] = useState<Record<string, string>>({});
+
+  // Carregar imagens personalizadas dos produtos
+  React.useEffect(() => {
+    const loadProductImages = async () => {
+      console.log('🔄 Carregando imagens personalizadas para', localProducts.length, 'produtos');
+      const images: Record<string, string> = {};
+      let loadedCount = 0;
+      
+      for (const product of localProducts) {
+        try {
+          const savedImage = await getProductImage(product.id);
+          // Only store the image if it exists and doesn't already have a custom image
+          if (savedImage && !productImages[product.id]) {
+            images[product.id] = savedImage;
+            loadedCount++;
+          }
+        } catch (error) {
+          console.warn(`⚠️ Erro ao carregar imagem do produto ${product.name}:`, error);
         }
       }
-    });
-  };
+      
+      console.log(`✅ ${loadedCount} imagens personalizadas carregadas`);
+      // Merge with existing images, prioritizing existing ones
+      setProductImages(prev => ({...images, ...prev}));
+    };
 
-  const toggleDayScheduling = (enabled: boolean) => {
-    if (!editingProduct) return;
-    
-    setEditingProduct({
-      ...editingProduct,
-      scheduledDays: {
-        ...(editingProduct.scheduledDays || {
-          days: {
-            monday: true,
-            tuesday: true,
-            wednesday: true,
-            thursday: true,
-            friday: true,
-            saturday: true,
-            sunday: true
-          },
-          startTime: '00:00',
-          endTime: '23:59'
-        }),
-        enabled
-      }
-    });
-  };
+    loadProductImages();
+  }, [localProducts, getProductImage]);
 
-  const filteredProducts = productList.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Renderização do formulário de edição
-  if (editingProduct) {
-    return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-bold">
-            {isCreating ? 'Novo Produto' : 'Editar Produto'}
-          </h2>
-          <div className="flex gap-2">
-            <button 
-              onClick={handleSave} 
-              className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700"
-            >
-              <Save size={16} /> Salvar
-            </button>
-            <button 
-              onClick={() => { 
-                setEditingProduct(null); 
-                setIsCreating(false); 
-              }} 
-              className="bg-gray-500 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-600"
-            >
-              <X size={16} /> Cancelar
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Nome *</label>
-            <input
-              type="text"
-              className="w-full p-2 border rounded"
-              value={editingProduct.name}
-              onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Categoria</label>
-            <select
-              className="w-full p-2 border rounded"
-              value={editingProduct.category}
-              onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value as any })}
-            >
-              <option value="acai">Açaí</option>
-              <option value="combo">Combos</option>
-              <option value="milkshake">Milkshakes</option>
-              <option value="vitamina">Vitaminas</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Preço (R$) *</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              className="w-full p-2 border rounded"
-              value={editingProduct.price || 0}
-              onChange={(e) => setEditingProduct({ 
-                ...editingProduct, 
-                price: parseFloat(e.target.value) || 0 
-              })}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Preço Original (R$)</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              className="w-full p-2 border rounded"
-              value={editingProduct.originalPrice || 0}
-              onChange={(e) => setEditingProduct({ 
-                ...editingProduct, 
-                originalPrice: parseFloat(e.target.value) || 0 
-              })}
-            />
-            <p className="text-xs text-gray-500 mt-1">Deixe em branco se não for um produto em promoção</p>
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Descrição</label>
-            <textarea
-              className="w-full p-2 border rounded"
-              rows={3}
-              value={editingProduct.description || ''}
-              onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Imagem do Produto</label>
-            <div className="flex items-center gap-4">
-              <img
-                src={productImages[editingProduct.id] || editingProduct.image || 'https://via.placeholder.com/100?text=Sem+Imagem'}
-                alt="Preview"
-                className="w-20 h-20 object-cover rounded-lg border border-gray-300"
-              />
-              <button
-                onClick={() => setShowImageUpload(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                Alterar Imagem
-              </button>
-            </div>
-          </div>
-
-          {/* Day Availability */}
-          <div className="md:col-span-2 mt-4">
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium">Disponibilidade por Dias</label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={editingProduct.scheduledDays?.enabled || false}
-                  onChange={(e) => toggleDayScheduling(e.target.checked)}
-                />
-                <span className="text-sm font-medium">
-                  {editingProduct.scheduledDays?.enabled ? 'Ativo' : 'Inativo'}
-                </span>
-              </label>
-            </div>
-            
-            {editingProduct.scheduledDays?.enabled && (
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {Object.entries(dayLabels).map(([day, label]) => {
-                    const isSelected = editingProduct.scheduledDays?.days[day as keyof ScheduledDays['days']] || false;
-                    return (
-                      <button
-                        key={day}
-                        onClick={() => toggleDayAvailability(day as keyof ScheduledDays['days'])}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                          isSelected 
-                            ? 'bg-purple-600 text-white' 
-                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                        }`}
-                        title={isSelected ? `Disponível ${label}` : `Indisponível ${label}`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-                
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Horário de Início</label>
-                    <input
-                      type="time"
-                      value={editingProduct.scheduledDays?.startTime || '00:00'}
-                      onChange={(e) => setEditingProduct({
-                        ...editingProduct,
-                        scheduledDays: {
-                          ...editingProduct.scheduledDays!,
-                          startTime: e.target.value
-                        }
-                      })}
-                      className="w-full p-1.5 border rounded text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1">Horário de Fim</label>
-                    <input
-                      type="time"
-                      value={editingProduct.scheduledDays?.endTime || '23:59'}
-                      onChange={(e) => setEditingProduct({
-                        ...editingProduct,
-                        scheduledDays: {
-                          ...editingProduct.scheduledDays!,
-                          endTime: e.target.value
-                        }
-                      })}
-                      className="w-full p-1.5 border rounded text-sm"
-                    />
-                  </div>
-                </div>
-                
-                <p className="text-xs text-gray-500 mt-2">
-                  O produto só estará disponível nos dias selecionados, durante o horário especificado.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={editingProduct.isActive !== false}
-                onChange={(e) => setEditingProduct({ 
-                  ...editingProduct, 
-                  isActive: e.target.checked 
-                })}
-              />
-              <span className="text-sm font-medium">Produto ativo</span>
-            </label>
-          </div>
-        </div>
-
-        {/* Complement Groups Section */}
-        <div className="mt-8 border-t pt-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Grupos de Complementos</h3>
-            <button
-              onClick={addComplementGroup}
-              className="bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 hover:bg-blue-700"
-            >
-              <Plus size={14} /> Novo Grupo de Complementos
-            </button>
-          </div>
-
-          {editingProduct.complementGroups && editingProduct.complementGroups.length > 0 ? (
-            <ul className="space-y-6 pl-0">
-              {editingProduct.complementGroups.map((group, groupIndex) => (
-                <li key={group.id} className="border rounded-lg p-4 bg-gray-50 list-none">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="space-y-3 w-full">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Nome do Grupo</label>
-                        <input
-                          type="text"
-                          className="w-full p-2 border rounded"
-                          value={group.name}
-                          onChange={(e) => updateComplementGroup(groupIndex, { name: e.target.value })}
-                        />
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-4">
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={group.required}
-                            onChange={(e) => updateComplementGroup(groupIndex, { required: e.target.checked })}
-                          />
-                          <span className="text-sm">Obrigatório</span>
-                        </label>
-                        
-                        <div>
-                          <label className="text-sm mr-2">Mínimo:</label>
-                          <input
-                            type="number"
-                            min="0"
-                            className="w-16 p-1 border rounded"
-                            value={group.minItems}
-                            onChange={(e) => updateComplementGroup(groupIndex, { minItems: parseInt(e.target.value) || 0 })}
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="text-sm mr-2">Máximo:</label>
-                          <input
-                            type="number"
-                            min="0"
-                            className="w-16 p-1 border rounded"
-                            value={group.maxItems}
-                            onChange={(e) => updateComplementGroup(groupIndex, { maxItems: parseInt(e.target.value) || 1 })}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <button
-                      onClick={() => removeComplementGroup(groupIndex)}
-                      className="text-red-500 hover:text-red-700 p-1"
-                      title="Remover grupo"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                  
-                  <div className="mt-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium text-sm">Complementos ({group.complements.length})</h4>
-                      <button
-                        onClick={() => addComplement(groupIndex)}
-                        className="bg-green-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-green-700"
-                      >
-                        <Plus size={12} /> Novo Complemento
-                      </button>
-                    </div>
-                    
-                    {group.complements.length > 0 ? (
-                      <ul className="space-y-2 pl-0">
-                        {group.complements.map((complement, complementIndex) => (
-                          <li key={complement.id} className="bg-white border rounded p-3 list-none">
-                            <div className="flex justify-between items-start">
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
-                                <div>
-                                  <label className="block text-xs font-medium mb-1">Nome</label>
-                                  <input
-                                    type="text"
-                                    className="w-full p-1.5 border rounded text-sm"
-                                    value={complement.name}
-                                    onChange={(e) => updateComplement(groupIndex, complementIndex, { name: e.target.value })}
-                                  />
-                                </div>
-                               
-                               <div>
-                                 <label className="flex items-center gap-2 text-xs font-medium mb-1">
-                                   <input
-                                     type="checkbox"
-                                     checked={complement.isActive !== false}
-                                     onChange={(e) => updateComplement(groupIndex, complementIndex, { 
-                                       isActive: e.target.checked 
-                                     })}
-                                     className="w-3 h-3"
-                                   />
-                                   <span className={complement.isActive !== false ? "text-green-600" : "text-gray-500"}>
-                                     {complement.isActive !== false ? "Ativo" : "Inativo"}
-                                   </span>
-                                 </label>
-                               </div>
-                                
-                                <div>
-                                  <label className="block text-xs font-medium mb-1">Descrição</label>
-                                  <input
-                                    type="text"
-                                    className="w-full p-1.5 border rounded text-sm"
-                                    value={complement.description || ''}
-                                    onChange={(e) => updateComplement(groupIndex, complementIndex, { description: e.target.value })}
-                                  />
-                                </div>
-                                
-                                <div>
-                                  <label className="block text-xs font-medium mb-1">Preço (R$)</label>
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    className="w-full p-1.5 border rounded text-sm"
-                                    value={complement.price || 0}
-                                    onChange={(e) => updateComplement(groupIndex, complementIndex, { price: parseFloat(e.target.value) || 0 })}
-                                  />
-                                </div>
-                              </div>
-                              
-                              <button
-                                onClick={() => removeComplement(groupIndex, complementIndex)}
-                                className="text-red-500 hover:text-red-700 p-1 ml-2"
-                                title="Remover complemento"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-gray-500 italic">Nenhum complemento adicionado</p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-              <p className="text-gray-500">Nenhum grupo de complementos adicionado</p>
-              <button
-                onClick={addComplementGroup}
-                className="mt-2 bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 mx-auto hover:bg-blue-700"
-              >
-                <Plus size={14} /> Adicionar Grupo
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Image Upload Modal */}
-        {showImageUpload && editingProduct && (
-          <ImageUploadModal
-            isOpen={showImageUpload}
-            onClose={() => setShowImageUpload(false)}
-            onSelectImage={(imageUrl) => {
-              setEditingProduct({
-                ...editingProduct,
-                image: imageUrl
-              });
-              setProductImages({
-                ...productImages,
-                [editingProduct.id]: imageUrl
-              });
-            }}
-            currentImage={productImages[editingProduct.id] || editingProduct.image}
-          />
-        )}
-      </div>
-    );
-  }
-
-  // Renderização da lista de produtos
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Produtos</h2>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+            <Package size={24} className="text-purple-600" />
+            Gerenciar Produtos
+          </h2>
+          <p className="text-gray-600">Configure produtos, preços e disponibilidade</p>
+        </div>
         <button
           onClick={handleCreate}
-          className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700"
+          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
         >
-          <Plus size={16} /> Novo Produto
+          <Plus size={20} />
+          Novo Produto
         </button>
       </div>
 
-      <div>
-        <input
-          type="text"
-          placeholder="Buscar produtos..."
-          className="w-full p-2 border rounded"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredProducts.map(product => (
-          <div key={product.id} className="border rounded p-4 bg-white shadow-sm">
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="font-bold text-lg">{product.name}</h3>
-              <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                {product.category}
-              </span>
-            </div>
-            
-            <div className="mb-2">
-              <img 
-                src={productImages[product.id] || product.image} 
-                alt={product.name}
-                className="w-full h-32 object-cover rounded-lg"
+      {/* Filters */}
+      <div className="bg-white rounded-xl shadow-sm p-4">
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Search */}
+          <div className="flex-1">
+            <div className="relative">
+              <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar produtos..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
-            
-            <p className="text-sm text-gray-700 mb-2">
-              {product.description}
-            </p>
-            
-            <div className="text-sm mb-3">
-              <strong>Preço: </strong>
-              R$ {product.price.toFixed(2)}
-              {product.originalPrice && product.originalPrice > product.price ? (
-                <span className="ml-2 line-through text-gray-500">
-                  R$ {product.originalPrice.toFixed(2)}
-                </span>
-              ) : null}
+          </div>
+
+          {/* Category Filter */}
+          <div className="lg:w-64">
+            <div className="relative">
+              <Filter size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value as Product['category'] | 'all')}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="all">Todas as categorias</option>
+                {Object.entries(categoryNames).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
             </div>
-            
-            <div className="text-sm mb-3">
-              <strong>Complementos: </strong>
-              {product.complementGroups ? product.complementGroups.length : 0} grupos
+          </div>
+        </div>
+      </div>
+
+      {/* Products List */}
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left py-3 px-4 font-medium text-gray-700">Produto</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700">Categoria</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700">Preço</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700">Programação</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filteredProducts.map((product) => (
+                <tr key={product.id} className="hover:bg-gray-50">
+                  <td className="py-4 px-4">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={productImages[product.id] || product.image}
+                        alt={product.name}
+                        className="w-12 h-12 object-cover rounded-lg"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-800">{product.name}</div>
+                        <div className="text-sm text-gray-500 truncate max-w-xs">
+                          {product.description}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-4 px-4">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      {categoryNames[product.category]}
+                    </span>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="font-semibold text-green-600">
+                      {formatPrice(product.price)}
+                    </div>
+                    {product.originalPrice && (
+                      <div className="text-sm text-gray-500 line-through">
+                        {formatPrice(product.originalPrice)}
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-4 px-4">
+                    <button
+                      onClick={() => handleToggleActive(product)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                        product.isActive !== false
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : 'bg-red-100 text-red-800 hover:bg-red-200'
+                      }`}
+                    >
+                      {product.isActive !== false ? (
+                        <>
+                          <Eye size={12} />
+                          Ativo
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff size={12} />
+                          Inativo
+                        </>
+                      )}
+                    </button>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="text-sm text-gray-600">
+                      {getProductScheduleStatus(product)}
+                    </div>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleScheduleProduct(product)}
+                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                        title="Programar disponibilidade"
+                      >
+                        <Calendar size={16} />
+                      </button>
+                      <button
+                        onClick={() => setEditingProduct(product)}
+                        className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                        title="Editar produto"
+                      >
+                        <Edit3 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(product.id, product.name)}
+                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                        title="Excluir produto"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-12">
+            <Package size={48} className="mx-auto text-gray-300 mb-4" />
+            <p className="text-gray-500">
+              {searchTerm || categoryFilter !== 'all' 
+                ? 'Nenhum produto encontrado' 
+                : 'Nenhum produto cadastrado'
+              }
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Edit/Create Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  {isCreating ? 'Novo Produto' : 'Editar Produto'}
+                </h2>
+                <button
+                  onClick={handleCancel}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
-            <div className="text-sm mb-3">
-              <strong>Disponibilidade: </strong>
-              {product.scheduledDays?.enabled ? (
-                <span className="text-green-600">Dias específicos</span>
-              ) : (
-                <span className="text-gray-600">Todos os dias</span>
-              )}
-              {product.scheduledDays?.enabled && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {Object.entries(dayLabels).map(([day, label]) => {
-                    const isAvailable = product.scheduledDays?.days[day as keyof ScheduledDays['days']];
-                    return (
-                      <span 
-                        key={day}
-                        className={`inline-block w-7 h-7 rounded-full flex items-center justify-center text-xs ${
-                          isAvailable 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-gray-100 text-gray-400'
-                        }`}
-                        title={isAvailable ? `Disponível ${label}` : `Indisponível ${label}`}
-                      >
-                        {label}
-                      </span>
-                    );
-                  })}
+            <div className="p-6 space-y-4">
+              {/* Image */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Imagem do Produto
+                </label>
+                <div className="text-xs text-gray-500 mb-2">
+                  <p>💡 <strong>Dica:</strong> Clique em "Alterar Imagem" para fazer upload de uma nova imagem</p>
+                  <p>🔄 A imagem será salva automaticamente no banco de dados</p>
+                  <p>📱 Imagens ficam sincronizadas em todos os dispositivos</p>
                 </div>
-              )}
+                <div className="flex items-center gap-4">
+                  <img
+                    src={productImages[editingProduct.id] || editingProduct.image}
+                    alt="Preview"
+                    className="w-20 h-20 object-cover rounded-lg border border-gray-300"
+                  />
+                  <button
+                    onClick={() => setShowImageModal(true)}
+                    className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <ImageIcon size={16} />
+                    Alterar Imagem
+                  </button>
+                </div>
+              </div>
+
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome do Produto *
+                </label>
+                <input
+                  type="text"
+                  value={editingProduct.name}
+                  onChange={(e) => setEditingProduct({
+                    ...editingProduct,
+                    name: e.target.value
+                  })}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Ex: Açaí Premium 500g"
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Categoria *
+                </label>
+                <select
+                  value={editingProduct.category}
+                  onChange={(e) => setEditingProduct({
+                    ...editingProduct,
+                    category: e.target.value as Product['category']
+                  })}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  {Object.entries(categoryNames).map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Price */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Preço (R$) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editingProduct.price}
+                    onChange={(e) => setEditingProduct({
+                      ...editingProduct,
+                      price: parseFloat(e.target.value) || 0
+                    })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Preço Original (R$)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editingProduct.originalPrice || ''}
+                    onChange={(e) => setEditingProduct({
+                      ...editingProduct,
+                      originalPrice: parseFloat(e.target.value) || undefined
+                    })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Descrição *
+                </label>
+                <textarea
+                  value={editingProduct.description}
+                  onChange={(e) => setEditingProduct({
+                    ...editingProduct,
+                    description: e.target.value
+                  })}
+                  className="w-full p-3 border border-gray-300 rounded-lg resize-none h-20 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Descreva o produto..."
+                />
+              </div>
+
+              {/* Active Status */}
+              <div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editingProduct.isActive !== false}
+                    onChange={(e) => setEditingProduct({
+                      ...editingProduct,
+                      isActive: e.target.checked
+                    })}
+                    className="w-4 h-4 text-purple-600"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Produto ativo (visível no cardápio)
+                  </span>
+                </label>
+              </div>
             </div>
-            
-            <div className="flex flex-wrap gap-2 items-center">
+
+            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
               <button
-                onClick={() => { 
-                  setIsCreating(false); 
-                  setEditingProduct(product); 
-                }}
-                className="bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-1 hover:bg-blue-600"
+                onClick={handleCancel}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
               >
-                <Edit2 size={14} /> Editar
+                Cancelar
               </button>
               <button
-                onClick={() => handleDelete(product.id)}
-                className="bg-red-500 text-white px-3 py-1 rounded text-sm flex items-center gap-1 hover:bg-red-600"
+                onClick={handleSave}
+                disabled={saving || !editingProduct.name.trim() || !editingProduct.description.trim()}
+                className="px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white rounded-lg transition-colors flex items-center gap-2"
               >
-                <Trash2 size={14} /> Excluir
-              </button>
-              <button
-                onClick={() => {
-                  // Toggle isActive property
-                  setProductList(prev => 
-                    prev.map(p => p.id === product.id ? { ...p, isActive: !p.isActive } : p)
-                  );
-                }}
-                className={`px-3 py-1 rounded text-sm flex items-center gap-1 transition-colors ${
-                  product.isActive !== false
-                    ? 'bg-green-500 hover:bg-green-600 text-white'
-                    : 'bg-gray-500 hover:bg-gray-600 text-white'
-                }`}
-                title={product.isActive !== false ? "Desativar produto" : "Ativar produto"}
-              >
-                {product.isActive !== false ? (
-                  <>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    Ativo
-                  </>
+                {saving && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                )}
+                {saving ? (
+                  'Salvando...'
                 ) : (
                   <>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                    Inativo
+                    <Save size={16} />
+                    {isCreating ? 'Criar Produto' : 'Salvar Alterações'}
                   </>
                 )}
               </button>
+              {saving && <p className="text-xs text-gray-500 mt-1">Processando imagem e salvando dados...</p>}
             </div>
           </div>
-        ))}
-      </div>
-
-      {filteredProducts.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          {searchTerm ? 'Nenhum produto encontrado.' : 'Nenhum produto cadastrado.'}
         </div>
+      )}
+
+      {/* Schedule Modal */}
+      {showScheduleModal && selectedProductForSchedule && (
+        <ProductScheduleModal
+          product={selectedProductForSchedule}
+          isOpen={showScheduleModal}
+          onClose={() => {
+            setShowScheduleModal(false);
+            setSelectedProductForSchedule(null);
+          }}
+          onSave={handleSaveSchedule}
+          currentSchedule={getProductSchedule(selectedProductForSchedule.id)}
+        />
+      )}
+
+      {/* Image Upload Modal */}
+      {showImageModal && (
+        <ImageUploadModal
+          isOpen={showImageModal}
+          onClose={() => setShowImageModal(false)}
+          onSelectImage={(imageUrl) => {
+            handleImageSelect(imageUrl);
+            setShowImageModal(false);
+          }}
+          currentImage={editingProduct?.image}
+        />
       )}
     </div>
   );
-}
+};
+
+export default ProductsPanel;

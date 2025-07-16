@@ -12,10 +12,11 @@ import { supabase } from '../../lib/supabase';
 
 interface PDVSalesScreenProps {
   scaleHook?: ReturnType<typeof useScale>;
+  operator?: any;
   storeSettings?: any;
 }
 
-const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook, storeSettings }) => {
+const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook, operator, storeSettings }) => {
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -64,7 +65,7 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook, storeSetting
   }, []);
 
   const { products, loading: productsLoading, searchProducts } = usePDVProducts();
-  const { isOpen: isCashRegisterOpen } = usePDVCashRegister();
+  const { isOpen: isCashRegisterOpen, currentRegister } = usePDVCashRegister();
   const { 
     currentWeight,
     requestStableWeight,
@@ -339,8 +340,13 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook, storeSetting
     try {
       console.log('🚀 Iniciando finalização da venda...');
       
+      // Check if cash register is open
+      if (!isCashRegisterOpen || !currentRegister) {
+        throw new Error('Não é possível finalizar venda sem um caixa aberto');
+      }
+      
       const saleData = {
-        operator_id: 'admin-id', // TODO: Pegar do contexto de autenticação
+        operator_id: operator?.id || 'admin-id',
         customer_name: customerName || undefined,
         customer_phone: customerPhone || undefined,
         subtotal: getSubtotal(),
@@ -595,6 +601,16 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook, storeSetting
             </div>
           )}
         </div>
+        
+        {/* Cash Register Closed Warning */}
+        {!isCashRegisterOpen && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+            <div className="flex items-center gap-2 text-red-700">
+              <AlertCircle size={20} />
+              <p className="font-medium">Não é possível realizar vendas sem um caixa aberto. Por favor, abra um caixa primeiro.</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Carrinho e Pagamento */}

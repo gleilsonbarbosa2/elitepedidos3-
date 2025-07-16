@@ -1,25 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { Order, OrderStatus } from '../../types/order';
 import OrderStatusBadge from './OrderStatusBadge';
 import OrderChat from './OrderChat';
 import OrderPrintView from './OrderPrintView';
-import { ChatActions } from '../ChatActions';
-import {
-  Clock,
-  User,
-  Phone,
-  MapPin,
+import { 
+  Clock, 
+  User, 
+  Phone, 
+  MapPin, 
   CreditCard,
   MessageCircle,
   ChevronDown,
   ChevronUp,
   Package,
-  Printer,
-  ShoppingCart,
-  Coins,
-  Truck,
-  CheckCircle,
-  XCircle
+  Printer
 } from 'lucide-react';
 
 interface OrderCardProps {
@@ -29,32 +23,15 @@ interface OrderCardProps {
   isAttendant?: boolean;
 }
 
-const OrderCard: React.FC<OrderCardProps> = ({
-  order,
+const OrderCard: React.FC<OrderCardProps> = ({ 
+  order, 
   storeSettings,
-  onStatusChange,
-  isAttendant = false
+  onStatusChange, 
+  isAttendant = false 
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showPrintView, setShowPrintView] = useState(false);
-  const hasPrintedRef = useRef(false);
-
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('pdv_settings');
-    const settings = savedSettings ? JSON.parse(savedSettings) : {};
-    const autoPrint = settings?.printer_layout?.auto_print_delivery;
-
-    const isNew = order.status === 'pending';
-
-    if (autoPrint && isNew && !hasPrintedRef.current) {
-      hasPrintedRef.current = true;
-
-      setTimeout(() => {
-        window.print();
-      }, 500);
-    }
-  }, [order]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -76,19 +53,20 @@ const OrderCard: React.FC<OrderCardProps> = ({
     }
   };
 
-  const statusOptions: { value: OrderStatus; label: string; icon: JSX.Element }[] = [
-    { value: 'pending', label: 'Pendente', icon: <Clock size={14} className="inline mr-1" /> },
-    { value: 'confirmed', label: 'Confirmado', icon: <CheckCircle size={14} className="inline mr-1" /> },
-    { value: 'preparing', label: 'Em Preparo', icon: <ShoppingCart size={14} className="inline mr-1" /> },
-    { value: 'out_for_delivery', label: 'Saiu para Entrega', icon: <Truck size={14} className="inline mr-1" /> },
-    { value: 'ready_for_pickup', label: 'Pronto para Retirada', icon: <Package size={14} className="inline mr-1" /> },
-    { value: 'delivered', label: 'Entregue', icon: <CheckCircle size={14} className="inline mr-1 text-green-600" /> },
-    { value: 'cancelled', label: 'Cancelado', icon: <XCircle size={14} className="inline mr-1 text-red-600" /> }
+  const statusOptions: { value: OrderStatus; label: string }[] = [
+    { value: 'pending', label: 'Pendente' },
+    { value: 'confirmed', label: 'Confirmado' },
+    { value: 'preparing', label: 'Em Preparo' },
+    { value: 'out_for_delivery', label: 'Saiu para Entrega' },
+    { value: 'ready_for_pickup', label: 'Pronto para Retirada' },
+    { value: 'delivered', label: 'Entregue' },
+    { value: 'cancelled', label: 'Cancelado' }
   ];
 
   return (
     <>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {/* Header */}
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
@@ -97,33 +75,21 @@ const OrderCard: React.FC<OrderCardProps> = ({
               </div>
               <div>
                 <h3 className="font-semibold text-gray-800">
-                  📦 Pedido <strong className="text-purple-700">#{order.id.slice(-8)}</strong>
+                  Pedido #{order.id.slice(-8)}
                 </h3>
-                <p className="text-sm text-gray-500">{formatDate(order.created_at)}</p>
+                <p className="text-sm text-gray-500">
+                  {formatDate(order.created_at)}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <OrderStatusBadge status={order.status} />
-              {isAttendant && (
-                <select
-                  value={order.status}
-                  onChange={(e) => onStatusChange(order.id, e.target.value as OrderStatus)}
-                  className="text-sm border border-gray-300 rounded-md px-2 py-1 text-gray-700 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
-                >
-                  {statusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
+            <OrderStatusBadge status={order.status} />
           </div>
 
+          {/* Customer Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
             <div className="flex items-center gap-2">
               <User size={16} className="text-gray-400" />
-              <span className="font-semibold text-blue-700">👤 {order.customer_name}</span>
+              <span>{order.customer_name}</span>
             </div>
             <div className="flex items-center gap-2">
               <Phone size={16} className="text-gray-400" />
@@ -144,46 +110,61 @@ const OrderCard: React.FC<OrderCardProps> = ({
             </div>
           </div>
 
+          {/* Total */}
           <div className="mt-3 pt-3 border-t border-gray-100">
             <div className="flex items-center justify-between">
               <span className="text-lg font-bold text-green-600">
                 Total: {formatPrice(order.total_price)}
               </span>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowPrintView(true)}
                   className="flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm"
+                  title="Imprimir pedido"
                 >
-                  <Printer size={16} className="flex-shrink-0" />
+                  <Printer size={16} />
                   Imprimir
                 </button>
                 <button
                   onClick={() => setShowChat(!showChat)}
                   className="flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
                 >
-                  <MessageCircle size={16} className="flex-shrink-0" />
-                  {showChat ? 'Fechar Chat' : 'Chat'}
+                  <MessageCircle size={16} />
+                  Chat
                 </button>
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
                 >
-                  {isExpanded ? <ChevronUp size={16} className="flex-shrink-0" /> : <ChevronDown size={16} className="flex-shrink-0" />}
+                  {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   {isExpanded ? 'Menos' : 'Detalhes'}
                 </button>
-                <ChatActions
-                  telefoneCliente={order.customer_phone.replace(/\D/g, '')}
-                  nomeCliente={order.customer_name}
-                  pedidoId={order.id.slice(-6)}
-                  total={order.total_price}
-                  pagamento={getPaymentMethodLabel(order.payment_method)}
-                  itens={order.items.map(item => ({ nome: item.product_name, quantidade: item.quantity }))}
-                />
               </div>
             </div>
           </div>
         </div>
 
+        {/* Status Change (Attendant Only) */}
+        {isAttendant && (
+          <div className="p-4 bg-gray-50 border-b border-gray-100">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Alterar Status:
+            </label>
+            <select
+              value={order.status}
+              onChange={(e) => onStatusChange(order.id, e.target.value as OrderStatus)}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              {statusOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Expanded Details */}
         {isExpanded && (
           <div className="p-4 border-b border-gray-100">
             <h4 className="font-medium text-gray-800 mb-3">Itens do Pedido:</h4>
@@ -201,6 +182,8 @@ const OrderCard: React.FC<OrderCardProps> = ({
                       {item.selected_size && (
                         <p className="text-sm text-gray-600">{item.selected_size}</p>
                       )}
+                      
+                      {/* Complementos */}
                       {item.complements.length > 0 && (
                         <div className="mt-1">
                           <p className="text-xs font-medium text-gray-700">Complementos:</p>
@@ -215,11 +198,13 @@ const OrderCard: React.FC<OrderCardProps> = ({
                           </div>
                         </div>
                       )}
+                      
                       {item.observations && (
                         <p className="text-sm text-gray-500 italic mt-1">
                           Obs: {item.observations}
                         </p>
                       )}
+                      
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-sm text-gray-600">
                           Qtd: {item.quantity}x
@@ -236,24 +221,26 @@ const OrderCard: React.FC<OrderCardProps> = ({
           </div>
         )}
 
+        {/* Chat */}
         {showChat && (
-          <div className="border-t border-gray-100 mt-4">
-            <OrderChat
-              orderId={order.id}
+          <div className="border-t border-gray-100">
+            <OrderChat 
+              orderId={order.id} 
               customerName={order.customer_name}
               isAttendant={isAttendant}
             />
           </div>
         )}
-
-        {showPrintView && (
-          <OrderPrintView
-            order={order}
-            storeSettings={storeSettings}
-            onClose={() => setShowPrintView(false)}
-          />
-        )}
       </div>
+
+      {/* Print View Modal */}
+      {showPrintView && (
+        <OrderPrintView 
+          order={order} 
+          storeSettings={storeSettings}
+          onClose={() => setShowPrintView(false)} 
+        />
+      )}
     </>
   );
 };

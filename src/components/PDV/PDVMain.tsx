@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calculator, Package, BarChart3, Settings, Users, ArrowLeft, DollarSign, Bell, FileText, LogOut, User, Layers, ChevronUp, ChevronDown, Truck, ShoppingBag } from 'lucide-react';
+import { Calculator, Package, BarChart3, Settings, Users, ArrowLeft, DollarSign, Bell, FileText, LogOut, User, Layers, ChevronUp, ChevronDown, Truck, ShoppingBag, MessageSquare } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useScale } from '../../hooks/useScale';
@@ -13,8 +13,8 @@ import PDVCashReportWithDetails from './PDVCashReportWithDetails';
 import PDVDailyCashReport from './PDVDailyCashReport';
 import PDVSettings from './PDVSettings'; 
 import PDVOperators from './PDVOperators';
-import { MessageSquare } from 'lucide-react';
 import PDVSalesReport from './PDVSalesReport';
+import PDVDailyDeliveryReport from './PDVDailyDeliveryReport';
 import CashRegisterMenu from './CashRegisterMenu';
 import AttendantPanel from '../Orders/AttendantPanel';
 
@@ -39,6 +39,7 @@ const menuCategories = [
     items: [
       { id: 'reports' as const, label: 'Gráficos', icon: BarChart3, color: 'bg-purple-500' },
       { id: 'sales_report' as const, label: 'Relatório de Vendas', icon: BarChart3, color: 'bg-indigo-500' },
+      { id: 'delivery_report' as const, label: 'Relatório de Entregas', icon: Truck, color: 'bg-blue-500' },
       { id: 'daily_cash_report' as const, label: 'Relatório de Caixa Diário', icon: FileText, color: 'bg-teal-500' },
       { id: 'cash_report' as const, label: 'Relatório de Caixa por Período', icon: DollarSign, color: 'bg-emerald-500' },
       { id: 'cash_report_details' as const, label: 'Histórico de Caixas', icon: FileText, color: 'bg-amber-500' }
@@ -204,7 +205,8 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
 
   const permissionMap = {
     'pdv': 'can_view_attendance',
-    'orders': 'can_view_orders'
+    'orders': 'can_view_orders',
+    'delivery_report': 'can_view_orders'
   };
   
   // Método alternativo para tocar som
@@ -269,11 +271,6 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
   useEffect(() => {
     if (activeScreen === 'orders') {
       setNewOrderAlert(false);
-      // Also reset the pending orders count notification
-      const pendingCount = orders.filter(o => o.status === 'pending').length;
-      if (pendingCount === 0) {
-        setNotificationsViewed(true);
-      }
     }
   }, [activeScreen]);
 
@@ -330,6 +327,8 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
         return <PDVProductsManager />;
       case 'reports':
         return <PDVReports />;
+      case 'delivery_report':
+        return <PDVDailyDeliveryReport />;
       case 'settings':
         return <PDVSettings />;
       case 'operators':

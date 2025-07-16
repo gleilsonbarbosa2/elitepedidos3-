@@ -15,36 +15,9 @@ const ATTENDANCE_CREDENTIALS = {
 };
 
 export const useAttendance = () => {
-  // Check if there's a stored session in localStorage
-  const getInitialSession = (): AttendanceSession => {
-    try {
-      const storedSession = localStorage.getItem('attendance_session');
-      if (storedSession) {
-        const sessionData = JSON.parse(storedSession);
-        // Check if session is still valid (less than 24 hours old)
-        const isValid = sessionData.timestamp && 
-                       (Date.now() - sessionData.timestamp) < (24 * 60 * 60 * 1000);
-                       
-        if (isValid && sessionData.isAuthenticated) {
-          console.log('✅ Restored attendance session from localStorage');
-          return {
-            isAuthenticated: true,
-            user: {
-              id: '1',
-              username: ATTENDANCE_CREDENTIALS.username,
-              role: 'admin'
-            }
-          };
-        }
-      }
-    } catch (error) {
-      console.error('Error parsing stored session:', error);
-    }
-    
-    return { isAuthenticated: false };
-  };
-  
-  const [session, setSession] = useState<AttendanceSession>(getInitialSession());
+  const [session, setSession] = useState<AttendanceSession>({
+    isAuthenticated: false
+  });
 
   const login = useCallback((username: string, password: string): boolean => {
     if (username === ATTENDANCE_CREDENTIALS.username && password === ATTENDANCE_CREDENTIALS.password) {
@@ -65,8 +38,6 @@ export const useAttendance = () => {
 
   const logout = useCallback(() => {
     console.log('Attendance logout');
-    // Clear session from localStorage
-    localStorage.removeItem('attendance_session');
     setSession({
       isAuthenticated: false
     });
