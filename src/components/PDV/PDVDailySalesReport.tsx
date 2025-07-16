@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, Calendar, Download, Printer, RefreshCw, ShoppingCart, Truck, DollarSign } from 'lucide-react';
-import { BarChart3, Calendar, Download, Printer, RefreshCw, ShoppingCart, Truck, DollarSign } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePermissions } from '../../hooks/usePermissions';
 import PermissionGuard from '../PermissionGuard';
