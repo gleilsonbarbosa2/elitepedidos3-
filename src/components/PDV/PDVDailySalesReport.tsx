@@ -3,7 +3,7 @@ import { BarChart3, Calendar, Download, Printer, RefreshCw, ShoppingCart, Truck,
 import { supabase } from '../../lib/supabase';
 import { usePermissions } from '../../hooks/usePermissions';
 import PermissionGuard from '../PermissionGuard';
-import {BarChart3, Calendar, Download} from 'lucide-react';
+
 
 interface SalesSummary {
   pdv_sales: {
