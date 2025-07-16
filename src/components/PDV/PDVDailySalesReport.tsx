@@ -108,6 +108,7 @@ const PDVDailySalesReport: React.FC = () => {
   };
 
   
+  
   useEffect(() => {
     const offset = new Date().getTimezoneOffset() * 60000;
     const start = new Date(new Date(date + "T00:00:00").getTime() - offset);
@@ -136,56 +137,57 @@ const PDVDailySalesReport: React.FC = () => {
 
         if (deliveryError) throw deliveryError;
 
-        // restante da lógica de processamento...
+        const pdvByPayment = {};
+        pdvSales?.forEach(sale => {
+          const method = sale.payment_type;
+          if (!pdvByPayment[method]) pdvByPayment[method] = { count: 0, total: 0 };
+          pdvByPayment[method].count += 1;
+          pdvByPayment[method].total += sale.total_amount;
+        });
 
-  };
+        const deliveryByPayment = {};
+        deliverySales?.forEach(sale => {
+          const method = sale.payment_method;
+          if (!deliveryByPayment[method]) deliveryByPayment[method] = { count: 0, total: 0 };
+          deliveryByPayment[method].count += 1;
+          deliveryByPayment[method].total += sale.total_price;
+        });
 
-  const getPaymentMethodName = (method: string) => {
-    const methodNames: Record<string, string> = {
-      'dinheiro': 'Dinheiro',
-      'money': 'Dinheiro',
-      'pix': 'PIX',
-      'cartao_credito': 'Cartão de Crédito',
-      'card': 'Cartão',
-      'cartao_debito': 'Cartão de Débito',
-      'voucher': 'Voucher',
-      'misto': 'Pagamento Misto'
+        const pdvTotal = pdvSales?.reduce((sum, sale) => sum + sale.total_amount, 0) || 0;
+        const deliveryTotal = deliverySales?.reduce((sum, sale) => sum + sale.total_price, 0) || 0;
+
+        setSummary({
+          pdv_sales: {
+            count: pdvSales?.length || 0,
+            total: pdvTotal,
+            by_payment_method: pdvByPayment
+          },
+          delivery_sales: {
+            count: deliverySales?.length || 0,
+            total: deliveryTotal,
+            by_payment_method: deliveryByPayment
+          },
+          total_sales: (pdvSales?.length || 0) + (deliverySales?.length || 0),
+          total_amount: pdvTotal + deliveryTotal
+        });
+
+        console.log('✅ Dados carregados:', {
+          pdvSales: pdvSales?.length || 0,
+          deliverySales: deliverySales?.length || 0,
+          pdvTotal,
+          deliveryTotal
+        });
+      } catch (error) {
+        console.error('Erro ao buscar vendas do dia:', error);
+        alert('Erro ao buscar vendas do dia');
+      } finally {
+        setLoading(false);
+      }
     };
-    
-    return methodNames[method] || method;
-  };
 
-  const handlePrint = () => {
-    window.print();
-  };
+    fetchData();
+  }, [date]);
 
-  const handleExportCSV = () => {
-    if (!summary) return;
-    
-    const csvContent = [
-      ['Relatório de Vendas Diárias - Elite Açaí'],
-      ['Data', formatDate(date)],
-      [''],
-      ['Resumo'],
-      ['Canal', 'Quantidade', 'Total'],
-      ['PDV', summary.pdv_sales.count.toString(), formatPrice(summary.pdv_sales.total)],
-      ['Delivery', summary.delivery_sales.count.toString(), formatPrice(summary.delivery_sales.total)],
-      ['Total', summary.total_sales.toString(), formatPrice(summary.total_amount)],
-      [''],
-      ['Detalhamento por Forma de Pagamento - PDV'],
-      ['Forma de Pagamento', 'Quantidade', 'Total'],
-      ...Object.entries(summary.pdv_sales.by_payment_method).map(([method, data]) => 
-        [getPaymentMethodName(method), data.count.toString(), formatPrice(data.total)]
-      ),
-      [''],
-      ['Detalhamento por Forma de Pagamento - Delivery'],
-      ['Forma de Pagamento', 'Quantidade', 'Total'],
-      ...Object.entries(summary.delivery_sales.by_payment_method).map(([method, data]) => 
-        [getPaymentMethodName(method), data.count.toString(), formatPrice(data.total)]
-      )
-    ].map(row => row.join(',')).join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `vendas-diarias-${date}.csv`;
