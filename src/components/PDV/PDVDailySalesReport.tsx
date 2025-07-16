@@ -107,33 +107,37 @@ const PDVDailySalesReport: React.FC = () => {
     }
   };
 
+  
   useEffect(() => {
-    fetchDailySales();
-  }, [date]);
+    const offset = new Date().getTimezoneOffset() * 60000;
+    const start = new Date(new Date(date + "T00:00:00").getTime() - offset);
+    const end = new Date(new Date(date + "T23:59:59.999").getTime() - offset);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await fetchDailySales();
-    } finally {
-      setRefreshing(false);
-    }
-  };
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        console.log('🔄 Buscando vendas do dia:', date);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(price);
-  };
+        const { data: pdvSales, error: pdvError } = await supabase
+          .from('pdv_sales')
+          .select('*')
+          .gte('created_at', start.toISOString())
+          .lte('created_at', end.toISOString())
+          .eq('is_cancelled', false);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+        if (pdvError) throw pdvError;
+
+        const { data: deliverySales, error: deliveryError } = await supabase
+          .from('orders')
+          .select('*')
+          .gte('created_at', start.toISOString())
+          .lte('created_at', end.toISOString())
+          .not('status', 'eq', 'cancelled');
+
+        if (deliveryError) throw deliveryError;
+
+        // restante da lógica de processamento...
+
   };
 
   const getPaymentMethodName = (method: string) => {
