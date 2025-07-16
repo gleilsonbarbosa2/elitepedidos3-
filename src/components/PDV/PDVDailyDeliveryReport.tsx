@@ -1,211 +1,50 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, Download, Printer, Filter, Search, Truck, Phone, MapPin, CreditCard, Clock, User, RefreshCw } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { usePermissions } from '../../hooks/usePermissions';
-import PermissionGuard from '../PermissionGuard';
-import { Order } from '../../types/order';
+import { X, Plus, Minus, ShoppingCart, Check } from 'lucide-react';
+import { Product, ProductSize, ComplementGroup, SelectedComplement, Complement } from '../../types/product';
+import { isProductAvailable, getAvailabilityMessage } from '../../utils/availability';
+import { useImageUpload } from '../../hooks/useImageUpload';
 
-interface DeliveryReport {
-  orders: Order[];
-  totals: {
-    count: number;
-    total: number;
-    byPaymentMethod: Record<string, { count: number; total: number }>;
-  };
+interface ProductModalProps {
+  product: Product;
+  isOpen: boolean;
+  onClose: () => void;
+  onAddToCart: (product: Product, selectedSize?: ProductSize, quantity: number, observations?: string, selectedComplements?: SelectedComplement[]) => void;
 }
 
-interface DeliveryDriver {
-  id: string;
-  name: string;
-}
+const ProductModal: React.FC<ProductModalProps> = ({ 
+  product, 
+  isOpen, 
+  onClose, 
+  onAddToCart 
+}) => {
+  const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(
+    product.sizes ? product.sizes[0] : undefined
+  );
+  const [quantity, setQuantity] = useState(1);
+  const [observations, setObservations] = useState('');
+  const [selectedComplements, setSelectedComplements] = useState<SelectedComplement[]>([]);
+  const [productImage, setProductImage] = useState<string | null>(null);
+  const hasSetCustomImage = useRef<boolean>(false);
 
-const PDVDailyDeliveryReport: React.FC = () => {
-  const { hasPermission } = usePermissions();
-  const [dateRange, setDateRange] = useState({
-    start: new Date().toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
-  });
-  const [selectedDriver, setSelectedDriver] = useState<string>('all');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [report, setReport] = useState<DeliveryReport | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [drivers, setDrivers] = useState<DeliveryDriver[]>([]);
-  const [printMode, setPrintMode] = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
-
-  // Payment method options
-  const paymentMethods = [
-    { id: 'all', label: 'Todas as formas' },
-    { id: 'money', label: 'Dinheiro' },
-    { id: 'pix', label: 'PIX' },
-    { id: 'card', label: 'Cartão' }
-  ];
-
-  useEffect(() => {
-    fetchReport();
-    fetchDrivers();
-  }, []);
-
-  const fetchDrivers = async () => {
-    try {
-      // In a real implementation, this would fetch from a drivers table
-      // For now, we'll use mock data
-      setDrivers([
-        { id: 'all', name: 'Todos os entregadores' },
-        { id: 'driver1', name: 'João Silva' },
-        { id: 'driver2', name: 'Maria Oliveira' },
-        { id: 'driver3', name: 'Pedro Santos' }
-      ]);
-    } catch (error) {
-      console.error('Erro ao carregar entregadores:', error);
-    }
-  };
-
-  const fetchReport = async () => {
-    setLoading(true);
-    try {
-      // Simple date filtering approach
-      const start = dateRange.start; // já está no formato 'YYYY-MM-DD'
-      const endDate = new Date(dateRange.end);
-      endDate.setDate(endDate.getDate() + 1);
-      const end = endDate.toISOString().slice(0, 10); // dia seguinte
-      
-      // Debug logs
-      console.log("Query start date:", start);
-      console.log("Query end date:", end);
-      
-      // Fetch orders with delivery status
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('channel', 'delivery')
-        .in('status', ['confirmed', 'delivered', 'out_for_delivery'])
-        .gte('created_at', start)
-        .lt('created_at', end)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Process the data
-      const orders = data || [];
-      
-      // Calculate totals
-      const totals = {
-        count: orders.length,
-        total: orders.reduce((sum, order) => sum + order.total_price, 0),
-        byPaymentMethod: {} as Record<string, { count: number; total: number }>
-      };
-
-      // Group by payment method
-      orders.forEach(order => {
-        const method = order.payment_method;
-        if (!totals.byPaymentMethod[method]) {
-          totals.byPaymentMethod[method] = { count: 0, total: 0 };
-        }
-        totals.byPaymentMethod[method].count += 1;
-        totals.byPaymentMethod[method].total += order.total_price;
-      });
-
-      setReport({ orders, totals });
-    } catch (error) {
-      console.error('Erro ao carregar relatório:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSearch = () => {
-    fetchReport();
-  };
+  const { getProductImage } = useImageUpload();
   
-  // Debug function to check date filtering
-  const debugDateFiltering = () => {
-    const start = dateRange.start;
-    const endDate = new Date(dateRange.end);
-    endDate.setDate(endDate.getDate() + 1);
-    const end = endDate.toISOString().slice(0, 10);
+  // Fetch product image when component mounts or product changes
+  useEffect(() => {
+    const loadProductImage = async () => {
+      try {
+        const image = await getProductImage(product.id);
+        // Only set the image if we haven't set a custom image yet
+        if (image && !hasSetCustomImage.current) {
+          setProductImage(image);
+          hasSetCustomImage.current = true;
+        }
+      } catch (error) {
+        console.error('Error loading product image:', error);
+      }
+    };
     
-    console.log('Debugging date filtering:');
-    console.log('Date range (local format):', dateRange.start, 'to', dateRange.end);
-    console.log('Format used in Supabase query:');
-    console.log('Start date:', start);
-    console.log('End date (next day):', end);
-    console.log('Equivalent SQL query:');
-    console.log(`SELECT * FROM orders 
-      WHERE created_at >= '${start}' 
-      AND created_at < '${end}'
-      AND channel = 'delivery'
-      AND status IN ('delivered', 'out_for_delivery')`);
-    
-    alert(`Date filtering debug info:
-Start date: ${start}
-End date: ${end}
-Check console for more details.`);
-  };
-
-  const handlePrint = () => {
-    setPrintMode(true);
-    setTimeout(() => {
-      window.print();
-      setPrintMode(false);
-    }, 100);
-  };
-
-  const handleExportCSV = () => {
-    if (!report) return;
-
-    const headers = [
-      'ID',
-      'Cliente',
-      'Telefone',
-      'Endereço',
-      'Bairro',
-      'Pagamento',
-      'Valor',
-      'Data/Hora',
-      'Entregador'
-    ];
-
-    const rows = report.orders.map(order => [
-      order.id.slice(-8),
-      order.customer_name,
-      order.customer_phone,
-      `${order.customer_address}${order.customer_complement ? `, ${order.customer_complement}` : ''}`,
-      order.customer_neighborhood,
-      getPaymentMethodLabel(order.payment_method),
-      formatPrice(order.total_price),
-      formatDate(order.created_at),
-      'N/A' // Entregador (not implemented yet)
-    ]);
-
-    // Add summary rows
-    rows.push([]);
-    rows.push(['RESUMO']);
-    rows.push(['Total de Pedidos', report.totals.count.toString()]);
-    rows.push(['Valor Total', formatPrice(report.totals.total)]);
-    rows.push([]);
-    rows.push(['PAGAMENTOS']);
-    
-    Object.entries(report.totals.byPaymentMethod).forEach(([method, data]) => {
-      rows.push([
-        getPaymentMethodLabel(method),
-        data.count.toString(),
-        formatPrice(data.total)
-      ]);
-    });
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `relatorio-entregas-${dateRange.start}-${dateRange.end}.csv`;
-    link.click();
-  };
+    loadProductImage();
+  }, [product.id, getProductImage]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -214,371 +53,315 @@ Check console for more details.`);
     }).format(price);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('pt-BR');
+  const getCurrentPrice = () => {
+    return selectedSize ? selectedSize.price : product.price;
   };
 
-  const getPaymentMethodLabel = (method: string) => {
-    switch (method) {
-      case 'money': return 'Dinheiro';
-      case 'pix': return 'PIX';
-      case 'card': return 'Cartão';
-      default: return method;
-    }
+  const getComplementsPrice = () => {
+    return selectedComplements.reduce((total, selected) => total + selected.complement.price, 0);
   };
 
-  const filteredOrders = report?.orders.filter(order => {
-    // Filter by driver (when implemented)
-    if (selectedDriver !== 'all') {
-      // This would check a driver_id field when implemented
-      // return order.driver_id === selectedDriver;
-    }
+  const getTotalPrice = () => {
+    return (getCurrentPrice() + getComplementsPrice()) * quantity;
+  };
 
-    // Filter by payment method
-    if (selectedPaymentMethod !== 'all' && order.payment_method !== selectedPaymentMethod) {
-      return false;
-    }
+  const handleComplementChange = (group: ComplementGroup, complementId: string, checked: boolean) => {
+    setSelectedComplements(prev => {
+      const groupSelections = prev.filter(s => s.groupId === group.id);
+      
+      if (checked) {
+        // Verificar se pode adicionar mais itens
+        if (groupSelections.length >= group.maxItems) {
+          return prev;
+        }
+        
+        const complement = group.complements.find(c => c.id === complementId);
+        if (complement) {
+          return [...prev, {
+            groupId: group.id,
+            complementId,
+            complement
+          }];
+        }
+      } else {
+        // Remover item
+        return prev.filter(s => !(s.groupId === group.id && s.complementId === complementId));
+      }
+      
+      return prev;
+    });
+  };
 
-    // Filter by search term
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        order.customer_name.toLowerCase().includes(searchLower) ||
-        order.customer_phone.includes(searchTerm) ||
-        order.customer_address.toLowerCase().includes(searchLower) ||
-        order.id.toLowerCase().includes(searchLower)
-      );
-    }
+  const handleRadioComplementChange = (group: ComplementGroup, complementId: string) => {
+    setSelectedComplements(prev => {
+      // Remove todas as seleções do grupo
+      const withoutGroup = prev.filter(s => s.groupId !== group.id);
+      
+      const complement = group.complements.find(c => c.id === complementId);
+      if (complement) {
+        return [...withoutGroup, {
+          groupId: group.id,
+          complementId,
+          complement
+        }];
+      }
+      
+      return withoutGroup;
+    });
+  };
 
-    return true;
-  }) || [];
+  const isComplementSelected = (groupId: string, complementId: string) => {
+    return selectedComplements.some(s => s.groupId === groupId && s.complementId === complementId);
+  };
+
+  const getGroupSelectionCount = (groupId: string) => {
+    return selectedComplements.filter(s => s.groupId === groupId).length;
+  };
+
+  const canAddToCart = () => {
+    if (!product.complementGroups) return true;
+    
+    return product.complementGroups.every(group => {
+      const selectionCount = getGroupSelectionCount(group.id);
+      return selectionCount >= group.minItems && selectionCount <= group.maxItems;
+    });
+  };
+
+  const handleAddToCart = () => {
+    onAddToCart(product, selectedSize, quantity, observations, selectedComplements);
+    onClose();
+    setQuantity(1);
+    setObservations('');
+    setSelectedComplements([]);
+  };
+
+  const isAvailable = isProductAvailable(product);
+  const availabilityMessage = getAvailabilityMessage(product);
+
+  // Use the fetched image or fall back to the default product image
+  // Once we've set a custom image, we'll always use that
+  const imageToShow = hasSetCustomImage.current && productImage ? productImage : product.image;
+
+  if (!isOpen) return null;
 
   return (
-    <PermissionGuard hasPermission={hasPermission('can_view_orders')} showMessage={true}>
-      <div className="space-y-6" ref={printRef}>
-        {/* Header - Hide in print mode */}
-        {!printMode && (
-          <div className="flex items-center justify-between print:hidden">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                <Truck size={24} className="text-purple-600" />
-                Relatório de Entregas
-              </h2>
-              <p className="text-gray-600">Acompanhamento de pedidos entregues</p>
-            </div>
-            
-            <div className="flex gap-2">
-              <button
-                onClick={handlePrint}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <Printer size={16} />
-                Imprimir
-              </button>
-              <button
-                onClick={handleExportCSV}
-                disabled={!report}
-                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <Download size={16} />
-                Exportar CSV
-              </button>
-              <button
-                onClick={debugDateFiltering}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-                title="Debug date filtering"
-              >
-                <RefreshCw size={16} />
-                Debug
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Print Header - Only show in print mode */}
-        {printMode && (
-          <div className="print-header">
-            <h1 className="text-2xl font-bold text-center">Relatório de Entregas - Elite Açaí</h1>
-            <p className="text-center text-gray-600">
-              Período: {new Date(dateRange.start).toLocaleDateString('pt-BR')} a {new Date(dateRange.end).toLocaleDateString('pt-BR')}
-            </p>
-            <p className="text-center text-gray-500 text-sm">Gerado em: {new Date().toLocaleString('pt-BR')}</p>
-            <hr className="my-4" />
-          </div>
-        )}
-
-        {/* Filters - Hide in print mode */}
-        {!printMode && (
-          <div className="bg-white rounded-xl shadow-sm p-6 sticky top-0 z-10 print:hidden">
-            <div className="flex flex-col md:flex-row gap-4 items-end">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Data Inicial
-                </label>
-                <div className="relative">
-                  <Calendar size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="date"
-                    value={dateRange.start}
-                    onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
-              
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Data Final
-                </label>
-                <div className="relative">
-                  <Calendar size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="date"
-                    value={dateRange.end}
-                    onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
-              
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Entregador
-                </label>
-                <select
-                  value={selectedDriver}
-                  onChange={(e) => setSelectedDriver(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  {drivers.map(driver => (
-                    <option key={driver.id} value={driver.id}>{driver.name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Forma de Pagamento
-                </label>
-                <select
-                  value={selectedPaymentMethod}
-                  onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  {paymentMethods.map(method => (
-                    <option key={method.id} value={method.id}>{method.label}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <button
-                onClick={handleSearch}
-                className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <Filter size={16} />
-                Filtrar
-              </button>
-              
-              <button
-                onClick={fetchReport}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-                title="Atualizar dados"
-              >
-                <RefreshCw size={16} />
-              </button>
-            </div>
-            
-            {/* Search */}
-            <div className="mt-4">
-              <div className="relative">
-                <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar por nome, telefone, endereço..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Orders List */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center p-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-              <span className="ml-2 text-gray-600">Carregando relatório...</span>
-            </div>
-          ) : filteredOrders.length === 0 ? (
-            <div className="text-center py-12">
-              <Truck size={48} className="mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500">Nenhuma entrega encontrada para o período selecionado</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Pedido</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Cliente</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Endereço</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Pagamento</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Valor</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Data/Hora</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Entregador</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredOrders.map((order) => (
-                    <tr key={order.id} className="hover:bg-gray-50">
-                      <td className="py-4 px-4">
-                        <span className="font-medium text-purple-600">#{order.id.slice(-8)}</span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div>
-                          <div className="font-medium text-gray-800">{order.customer_name}</div>
-                          <div className="text-sm text-gray-500 flex items-center gap-1">
-                            <Phone size={12} />
-                            {order.customer_phone}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-start gap-1">
-                          <MapPin size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <div className="text-gray-800">{order.customer_address}</div>
-                            <div className="text-sm text-gray-500">
-                              {order.customer_neighborhood}
-                              {order.customer_complement && `, ${order.customer_complement}`}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <CreditCard size={16} className="text-gray-400" />
-                          <span>{getPaymentMethodLabel(order.payment_method)}</span>
-                        </div>
-                        {order.payment_method === 'money' && order.change_for && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            Troco para: {formatPrice(order.change_for)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className="font-semibold text-green-600">{formatPrice(order.total_price)}</span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <Clock size={16} className="text-gray-400" />
-                          <span>{formatDate(order.created_at)}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <User size={16} className="text-gray-400" />
-                          <span className="text-gray-500">Não atribuído</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="relative">
+          <img
+            src={imageToShow}
+            alt={product.name}
+            className="w-full h-48 object-cover rounded-t-2xl"
+          />
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full p-2 hover:bg-white transition-colors"
+          >
+            <X size={20} />
+          </button>
+          
+          {product.originalPrice && (
+            <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+              PROMOÇÃO
             </div>
           )}
         </div>
 
-        {/* Summary Footer */}
-        {report && (
-          <div className="bg-white rounded-xl shadow-sm p-6 sticky bottom-0 print:static">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Resumo</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Total de Entregas:</span>
-                    <span className="font-bold">{report.totals.count}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Valor Total:</span>
-                    <span className="font-bold text-green-600">{formatPrice(report.totals.total)}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="md:col-span-2">
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Por Forma de Pagamento</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {Object.entries(report.totals.byPaymentMethod).map(([method, data]) => (
-                    <div key={method} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="font-medium text-gray-700">{getPaymentMethodLabel(method)}</span>
-                        <span className="text-sm text-gray-500">{data.count} pedidos</span>
-                      </div>
-                      <div className="font-bold text-green-600">{formatPrice(data.total)}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+        <div className="p-6">
+          <div className="mb-4">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">{product.name}</h2>
+            <p className="text-gray-600 mb-2">{product.description}</p>
+            
+            {/* Status de Disponibilidade */}
+            <div className={`flex items-center gap-2 text-sm mb-3 ${
+              isAvailable ? 'text-green-600' : 'text-red-600'
+            }`}>
+              <Check size={16} />
+              <span className="font-medium">{availabilityMessage}</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-green-600">
+                {formatPrice(getCurrentPrice())}
+              </span>
+              {product.originalPrice && (
+                <span className="text-lg text-gray-500 line-through">
+                  {formatPrice(product.originalPrice)}
+                </span>
+              )}
             </div>
           </div>
-        )}
 
-        {/* Print Styles */}
-        <style jsx>{`
-          @media print {
-            @page {
-              size: portrait;
-              margin: 10mm;
+          {/* Seleção de Tamanho */}
+          {product.sizes && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Escolha o tamanho:</h3>
+              <div className="space-y-2">
+                {product.sizes.map((size) => (
+                  <button
+                    key={size.id}
+                    onClick={() => setSelectedSize(size)}
+                    className={`w-full p-3 rounded-lg border-2 transition-all ${
+                      selectedSize?.id === size.id
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="text-left">
+                        <div className="font-medium">{size.name}</div>
+                        {size.description && (
+                          <div className="text-sm text-gray-500">{size.description}</div>
+                        )}
+                      </div>
+                      <div className="font-bold text-purple-600">
+                        {formatPrice(size.price)}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Grupos de Complementos */}
+          {product.complementGroups && product.complementGroups.map((group) => (
+            <div key={group.id} className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-gray-800">{group.name}</h3>
+                <span className="text-sm text-gray-500">
+                  {getGroupSelectionCount(group.id)}/{group.maxItems}
+                </span>
+              </div>
+              
+              {group.required && (
+                <p className="text-sm text-red-600 mb-2">* Obrigatório</p>
+              )}
+              
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {group.complements.map((complement) => {
+                  const isSelected = isComplementSelected(group.id, complement.id);
+                  const groupCount = getGroupSelectionCount(group.id);
+                  const canSelect = groupCount < group.maxItems || isSelected;
+                  const isRadio = group.maxItems === 1;
+                  
+                  return (
+                    <label
+                      key={complement.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-green-500 bg-green-50'
+                          : canSelect
+                          ? 'border-gray-200 hover:border-gray-300'
+                          : 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type={isRadio ? 'radio' : 'checkbox'}
+                          name={isRadio ? `group-${group.id}` : undefined}
+                          checked={isSelected}
+                          disabled={!canSelect}
+                          onChange={(e) => {
+                            if (isRadio) {
+                              handleRadioComplementChange(group, complement.id);
+                            } else {
+                              handleComplementChange(group, complement.id, e.target.checked);
+                            }
+                          }}
+                          className="w-4 h-4 text-green-600"
+                        />
+                        <div>
+                          <div className="font-medium text-gray-800">{complement.name}</div>
+                          {complement.description && (
+                            <div className="text-sm text-gray-500">{complement.description}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="font-bold text-green-600">
+                        {complement.price > 0 ? formatPrice(complement.price) : 'Grátis'}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {/* Observações */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Observações:</h3>
+            <textarea
+              value={observations}
+              onChange={(e) => setObservations(e.target.value)}
+              placeholder="Ex: Sem açúcar, mais granola..."
+              className="w-full p-3 border border-gray-300 rounded-lg resize-none h-20 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          {/* Quantidade */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Quantidade:</h3>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                className="bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+              >
+                <Minus size={20} />
+              </button>
+              <span className="text-xl font-semibold w-8 text-center">{quantity}</span>
+              <button
+                onClick={() => setQuantity(quantity + 1)}
+                className="bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+              >
+                <Plus size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Resumo do Preço */}
+          {getComplementsPrice() > 0 && (
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <div className="flex justify-between text-sm text-gray-600 mb-1">
+                <span>Produto base:</span>
+                <span>{formatPrice(getCurrentPrice())}</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-600 mb-1">
+                <span>Complementos:</span>
+                <span>{formatPrice(getComplementsPrice())}</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-600 mb-1">
+                <span>Quantidade:</span>
+                <span>{quantity}x</span>
+              </div>
+              <hr className="my-2" />
+              <div className="flex justify-between font-semibold">
+                <span>Total:</span>
+                <span>{formatPrice(getTotalPrice())}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Botão Adicionar */}
+          <button
+            onClick={handleAddToCart}
+            disabled={!canAddToCart() || !isAvailable}
+            className={`w-full py-4 rounded-lg font-semibold text-lg transition-colors flex items-center justify-center gap-2 ${
+              !canAddToCart() || !isAvailable
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-green-500 hover:bg-green-600 text-white'
+            }`}
+          >
+            <ShoppingCart size={20} />
+            {!canAddToCart() 
+              ? 'Complete as opções obrigatórias'
+              : `Adicionar - ${formatPrice(getTotalPrice())}`
             }
-            
-            body {
-              font-family: Arial, sans-serif;
-              color: #000;
-              background: #fff;
-            }
-            
-            .print\\:hidden {
-              display: none !important;
-            }
-            
-            table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            
-            th, td {
-              border: 1px solid #ddd;
-              padding: 8px;
-              text-align: left;
-            }
-            
-            th {
-              background-color: #f2f2f2;
-            }
-            
-            .print-header {
-              text-align: center;
-              margin-bottom: 20px;
-            }
-            
-            .print-header h1 {
-              font-size: 24px;
-              margin-bottom: 5px;
-            }
-            
-            .print-header p {
-              font-size: 14px;
-              color: #666;
-            }
-          }
-        `}</style>
+          </button>
+        </div>
       </div>
-    </PermissionGuard>
+    </div>
   );
 };
 
-export default PDVDailyDeliveryReport;
+export default ProductModal;

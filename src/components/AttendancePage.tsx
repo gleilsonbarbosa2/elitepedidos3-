@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import AttendanceLogin from './Orders/AttendanceLogin';
 import UnifiedAttendancePage from './UnifiedAttendancePage';
 import { useAttendance } from '../hooks/useAttendance';
-import { BarChart3 } from 'lucide-react';
-
 
 const AttendancePage: React.FC = () => {
   const navigate = useNavigate();
