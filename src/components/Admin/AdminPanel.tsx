@@ -4,6 +4,8 @@ import ProductsPanel from './ProductsPanel';
 import NeighborhoodsPanel from './NeighborhoodsPanel';
 import StoreHoursPanel from './StoreHoursPanel';
 import UnifiedAttendancePage from '../UnifiedAttendancePage';
+import { BarChart3 } from 'lucide-react';
+
 
 interface AdminPanelProps {
   onLogout: () => void;
