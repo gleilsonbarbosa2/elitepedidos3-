@@ -11,6 +11,7 @@ import {
 import AttendantPanel from './Orders/AttendantPanel'; 
 import PDVSalesScreen from './PDV/PDVSalesScreen';
 import CashRegisterMenu from './PDV/CashRegisterMenu';
+import PDVDailySalesReport from './PDV/PDVDailySalesReport';
 import { usePermissions } from '../hooks/usePermissions';
 import { useScale } from '../hooks/useScale';
 import { useOrders } from '../hooks/useOrders';
@@ -24,7 +25,7 @@ interface UnifiedAttendancePanelProps {
 }
 
 const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator, storeSettings, scaleHook }) => {
-  const [activeTab, setActiveTab] = useState<'sales' | 'orders' | 'cash'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'orders' | 'cash' | 'daily_sales'>('sales');
   const { hasPermission } = usePermissions(operator);
   const { storeSettings: localStoreSettings } = useStoreHours();
   const scale = useScale();
@@ -107,6 +108,20 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
                 Caixas
               </button>
             )}
+            
+            {(isAdmin || hasPermission('can_view_sales_report')) && (
+              <button
+                onClick={() => setActiveTab('daily_sales')}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  activeTab === 'daily_sales'
+                    ? 'bg-teal-600 text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <BarChart3 size={20} />
+                Vendas do Dia
+              </button>
+            )}
           </div>
         </div>
 
@@ -115,6 +130,7 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
           {activeTab === 'sales' && (isAdmin || hasPermission('can_view_sales')) && <PDVSalesScreen scaleHook={scaleHook || scale} storeSettings={settings} />}
           {activeTab === 'orders' && (isAdmin || hasPermission('can_view_orders')) && <AttendantPanel storeSettings={settings} />}
           {activeTab === 'cash' && (isAdmin || hasPermission('can_view_cash_register')) && <CashRegisterMenu storeSettings={settings} />}
+          {activeTab === 'daily_sales' && (isAdmin || hasPermission('can_view_sales_report')) && <PDVDailySalesReport />}
         </div>
       </div>
     </div>
