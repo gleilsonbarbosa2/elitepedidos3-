@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, AlertTriangle, DollarSign, CheckCircle } from 'lucide-react';
-import { PDVCashRegister, PDVCashRegisterSummary } from '../../types/pdv';
+import { PDVCashRegister, PDVCashRegisterSummary, PDVCashRegisterEntry } from '../../types/pdv';
 
 interface CashRegisterCloseConfirmationProps {
   isOpen: boolean;

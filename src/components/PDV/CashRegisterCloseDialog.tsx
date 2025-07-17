@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Printer, CheckCircle, MessageSquare, FileText, AlertTriangle } from 'lucide-react';
 import { PDVCashRegister, PDVCashRegisterSummary } from '../../types/pdv';
+import { useNavigate } from 'react-router-dom';
 
 interface CashRegisterCloseDialogProps {
   isOpen: boolean;
@@ -29,20 +30,6 @@ const CashRegisterCloseDialog: React.FC<CashRegisterCloseDialogProps> = ({
     // If onCloseAll is provided, call it to close all other dialogs
     if (onCloseAll) {
       onCloseAll();
-    }
-  };
-
-  // Function to handle printing
-  const handlePrint = () => {
-    console.log('🖨️ Printing cash register report...');
-    onPrint();
-  };
-
-  // Function to handle viewing daily report
-  const handleViewDailyReport = () => {
-    console.log('📊 Navigating to daily cash report...');
-    if (onViewDailyReport) {
-      onViewDailyReport();
     }
   };
   
@@ -138,6 +125,12 @@ const CashRegisterCloseDialog: React.FC<CashRegisterCloseDialogProps> = ({
       return;
     }
     
+    if (!register || !summary) {
+      alert('Erro: Dados do caixa não disponíveis. Por favor, tente novamente.');
+      console.error('Erro ao enviar WhatsApp: Dados do caixa não disponíveis', { register, summary });
+      return;
+    }
+    
     const message = generateWhatsAppMessage();
     window.open(`https://wa.me/5585989041010?text=${message}`, '_blank');
   };
@@ -184,7 +177,7 @@ const CashRegisterCloseDialog: React.FC<CashRegisterCloseDialogProps> = ({
             <h4 className="font-medium text-gray-700 mb-2">Escolha uma opção:</h4>
             
             <button
-              onClick={handlePrint}
+              onClick={onPrint}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
             >
               <Printer size={20} />
@@ -193,7 +186,18 @@ const CashRegisterCloseDialog: React.FC<CashRegisterCloseDialogProps> = ({
             
             {onViewDailyReport && (
               <button
-                onClick={handleViewDailyReport}
+                onClick={onViewDailyReport}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+              >
+                <FileText size={20} />
+                <span className="font-bold">Ver</span> Relatório de Caixa Diário
+              </button>
+            )}
+            
+            
+            {onViewDailyReport && (
+              <button
+                onClick={onViewDailyReport}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
               >
                 <FileText size={20} />
@@ -203,6 +207,7 @@ const CashRegisterCloseDialog: React.FC<CashRegisterCloseDialogProps> = ({
             
             <button 
               onClick={handleSendWhatsApp}
+              disabled={!register || !summary}
               disabled={!register || !summary}
               className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-3 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
             >
@@ -230,6 +235,14 @@ const CashRegisterCloseDialog: React.FC<CashRegisterCloseDialogProps> = ({
       </div>
     </div>
   );
+};
+
+// Helper function to format currency
+const formatPrice = (price: number) => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(price);
 };
 
 export default CashRegisterCloseDialog;

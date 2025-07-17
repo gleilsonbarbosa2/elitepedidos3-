@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { usePDVCashRegister } from '../../hooks/usePDVCashRegister';
 import { usePermissions } from '../../hooks/usePermissions';
 import PermissionGuard from '../PermissionGuard';
-import CashRegisterCloseConfirmation from './CashRegisterCloseConfirmation';
-import CashRegisterCloseDialog from './CashRegisterCloseDialog';
 import { 
   DollarSign, FileText,
   ArrowDownCircle, 
@@ -40,10 +38,6 @@ const CashRegisterMenu: React.FC = () => {
   const [showOpenRegister, setShowOpenRegister] = useState(false);
   const [showCloseRegister, setShowCloseRegister] = useState(false);
   const [showCashEntry, setShowCashEntry] = useState(false);
-  const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
-  const [showCloseSuccess, setShowCloseSuccess] = useState(false);
-  const [isClosingCashRegister, setIsClosingCashRegister] = useState(false);
-  const [showPrintView, setShowPrintView] = useState(false);
   const [showBillCounting, setShowBillCounting] = useState(false);
   const [openingAmount, setOpeningAmount] = useState('');
   const [closingAmount, setClosingAmount] = useState('');
@@ -103,35 +97,21 @@ const CashRegisterMenu: React.FC = () => {
     }
   };
 
-  const confirmCloseCashRegister = async (closingAmount: number) => {
-    if (!closingAmount) {
-      console.error('❌ Valor de fechamento inválido:', closingAmount);
-      return;
-    }
+  const handleCloseRegister = async () => {
+    if (!closingAmount) return;
     
-    setIsClosingCashRegister(true);
-    console.log('🔒 Iniciando fechamento de caixa com valor:', {
-      closingAmount,
+    console.log('🔒 Fechando caixa com valor:', {
+      closingAmount: parseFloat(closingAmount),
       expectedBalance: summary.expected_balance,
-      difference: closingAmount - summary.expected_balance
+      difference: parseFloat(closingAmount) - summary.expected_balance
     });
     
     try {
-      const result = await closeCashRegister(closingAmount);
-      
-      if (result.success) {
-        console.log('✅ Caixa fechado com sucesso:', result);
-        setShowCloseConfirmation(false);
-        setShowCloseSuccess(true);
-      } else {
-        console.error('❌ Erro ao fechar caixa:', result.error);
-        alert(`Erro ao fechar caixa: ${result.error}`);
-      }
+      await closeCashRegister(parseFloat(closingAmount));
+      setShowCloseRegister(false);
+      setClosingAmount('');
     } catch (err) {
       console.error('Erro ao fechar caixa:', err);
-      alert('Erro ao fechar caixa. Tente novamente.');
-    } finally {
-      setIsClosingCashRegister(false);
     }
   };
 
@@ -233,7 +213,6 @@ const CashRegisterMenu: React.FC = () => {
               <button
                 onClick={() => setShowCloseRegister(true)}
                 className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg transition-colors text-sm"
-                title="Fechar o caixa atual"
               >
                 <Clock size={16} />
                 Fechar Caixa
@@ -607,14 +586,11 @@ const CashRegisterMenu: React.FC = () => {
                   Cancelar
                 </button>
                 <button
+                  onClick={handleCloseRegister}
                   disabled={!closingAmount}
-                  onClick={() => {
-                    setShowCloseRegister(false);
-                    setShowCloseConfirmation(true);
-                  }}
                   className="flex-1 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg transition-colors"
                 >
-                  Confirmar
+                  Fechar Caixa
                 </button>
               </div>
             </div>
@@ -929,62 +905,9 @@ const CashRegisterMenu: React.FC = () => {
           </div>
         </div>
       )}
-      
-      {/* Close Confirmation Dialog */}
-      <CashRegisterCloseConfirmation
-        isOpen={showCloseConfirmation}
-        onClose={() => setShowCloseConfirmation(false)}
-        onConfirm={confirmCloseCashRegister}
-        register={currentRegister}
-        summary={summary}
-        isProcessing={isClosingCashRegister}
-      />
-      
-      {/* Close Success Dialog */}
-      <CashRegisterCloseDialog
-        isOpen={showCloseSuccess}
-        onClose={() => {
-          console.log('🔄 Closing success dialog');
-          setShowCloseSuccess(false);
-        }}
-        onCloseAll={() => {
-          console.log('🔄 Closing all dialogs');
-          setShowCloseSuccess(false);
-          setShowCloseConfirmation(false);
-        }}
-        register={currentRegister}
-        summary={summary}
-        onPrint={handlePrintReceipt}
-        onViewDailyReport={handleViewDailyReport}
-      />
     </div>
     </PermissionGuard>
   );
-};
-
-// Function to handle printing receipt
-const handlePrintReceipt = () => {
-  console.log('🖨️ Imprimindo relatório de caixa...');
-  try {
-    window.print();
-  } catch (error) {
-    console.error('Erro ao imprimir:', error);
-    alert('Erro ao imprimir. Verifique se a impressora está configurada corretamente.');
-  }
-};
-
-// Function to handle viewing daily report
-const handleViewDailyReport = () => {
-  console.log('📊 Navegando para o relatório diário...');
-  try {
-    // Store the screen to navigate to in localStorage
-    localStorage.setItem('pdv_active_screen', 'daily_cash_report');
-    // Redirect to PDV main with the daily_cash_report screen
-    window.location.href = '/pdv/app';
-  } catch (error) {
-    console.error('Erro ao navegar para o relatório diário:', error);
-    alert('Erro ao navegar para o relatório diário. Tente novamente.');
-  }
 };
 
 export default CashRegisterMenu;
