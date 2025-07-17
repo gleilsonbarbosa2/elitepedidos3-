@@ -34,6 +34,17 @@ export interface PDVOperator {
     can_view_sales_report?: boolean;
     can_view_cash_report?: boolean;
     can_view_operators?: boolean;
+    can_view_delivery_report?: boolean;
+    can_view_attendance?: boolean;
+    can_use_scale?: boolean;
+    can_manage_settings?: boolean;
+    can_view_cash_menu?: boolean;
+    can_view_daily_cash_report?: boolean;
+    can_view_cash_report_details?: boolean;
+    can_view_delivery_orders?: boolean;
+    can_manage_manual_orders?: boolean;
+    can_print_receipts?: boolean;
+    can_access_admin?: boolean;
   };
   created_at: string;
   updated_at: string;

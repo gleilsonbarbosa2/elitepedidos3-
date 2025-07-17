@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, ShoppingCart, MessageCircle, Trash2, MapPin, ArrowLeft, Gift, ChevronRight, CreditCard, Banknote, QrCode } from 'lucide-react';
+import { X, Plus, Minus, ShoppingCart, MessageCircle, Trash2, MapPin, ArrowLeft, Gift, ChevronRight, CreditCard, Banknote, QrCode, AlertCircle } from 'lucide-react';
 import { CartItem } from '../../types/product';
 import { DeliveryInfo } from '../../types/delivery';
 import { Customer, CustomerBalance } from '../../types/cashback';

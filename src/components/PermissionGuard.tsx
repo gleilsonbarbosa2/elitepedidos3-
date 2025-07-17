@@ -58,7 +58,7 @@ const PermissionGuard: React.FC<PermissionGuardProps> = ({
           </div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Acesso Negado</h2>
           <p className="text-gray-600 mb-6">
-            Você não tem permissão para acessar esta página. Entre em contato com o administrador para obter acesso.
+            Você não tem permissão para acessar a página de atendimento. Entre em contato com o administrador para obter a permissão "Atendimento".
           </p>
           <button
             onClick={() => navigate('/')}

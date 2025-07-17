@@ -40,7 +40,7 @@ const menuCategories = [
       { id: 'reports' as const, label: 'Gráficos', icon: BarChart3, color: 'bg-purple-500' },
       { id: 'sales_report' as const, label: 'Relatório de Vendas', icon: BarChart3, color: 'bg-indigo-500' },
       { id: 'daily_cash_report' as const, label: 'Relatório de Caixa Diário', icon: FileText, color: 'bg-teal-500' },
-      { id: 'delivery_report' as const, label: 'Relatório de Delivery', icon: Truck, color: 'bg-purple-500' },
+      { id: 'delivery_report' as const, label: 'Relatório de Delivery', icon: Truck, color: 'bg-orange-500' },
       { id: 'cash_report' as const, label: 'Relatório de Caixa por Período', icon: DollarSign, color: 'bg-emerald-500' },
       { id: 'cash_report_details' as const, label: 'Histórico de Caixas', icon: FileText, color: 'bg-amber-500' }
     ]
@@ -307,26 +307,31 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
     }
 
     const permissionMap: Record<string, keyof typeof operator.permissions> = {
-      'sales': 'can_view_sales',
       'attendance': 'can_view_sales',
-      'cash_register': 'can_view_cash_register',
       'cash_menu': 'can_view_cash_register',
       'products': 'can_view_products',
       'orders': 'can_view_orders',
       'reports': 'can_view_reports',
       'sales_report': 'can_view_sales_report',
       'cash_report': 'can_view_cash_report',
-      'delivery_report': 'can_view_orders',
+      'delivery_report': 'can_view_delivery_report',
       'cash_report_details': 'can_view_cash_report',
       'daily_cash_report': 'can_view_cash_report',
       'operators': 'can_view_operators',
-      'settings': 'can_manage_products' // Settings requires product management permission
+      'settings': 'can_manage_settings'
     };
 
     const filteredCategories = menuCategories.map(category => {
       const filteredItems = category.items.filter(item => {
         const permissionKey = permissionMap[item.id];
-        return !permissionKey || operator.permissions[permissionKey] !== false;
+        
+        // Se não há permissão mapeada, não mostrar o item
+        if (!permissionKey) {
+          return false;
+        }
+        
+        // Verificar se o operador tem a permissão específica
+        return operator.permissions[permissionKey] === true;
       });
       
       return {
@@ -385,13 +390,30 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
                   <ArrowLeft size={20} className="text-gray-600" />
                 </button>
               )}
-              <div className="bg-green-100 rounded-full p-2">
-                <Calculator size={24} className="text-green-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">PDV - Elite Açaí</h1>
-                <p className="text-gray-600">Sistema de Ponto de Venda</p>
-              </div>
+              {(hasPermission('can_view_sales') || hasPermission('can_view_cash_register') || hasPermission('can_view_products') || !operator) && (
+                <>
+                  <div className="bg-green-100 rounded-full p-2">
+                    <Calculator size={24} className="text-green-600" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-800">PDV - Elite Açaí</h1>
+                    <p className="text-gray-600">Sistema de Ponto de Venda</p>
+                  </div>
+                </>
+              )}
+              
+              {/* Fallback title for users without PDV permissions */}
+              {operator && !hasPermission('can_view_sales') && !hasPermission('can_view_cash_register') && !hasPermission('can_view_products') && (
+                <>
+                  <div className="bg-purple-100 rounded-full p-2">
+                    <Package size={24} className="text-purple-600" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-800">Sistema Elite Açaí</h1>
+                    <p className="text-gray-600">Painel de Controle</p>
+                  </div>
+                </>
+              )}
             </div>
             
             <div className="flex items-center gap-4">
@@ -477,8 +499,9 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
                         'daily_cash_report': 'can_view_cash_report',
                         'cash_report': 'can_view_cash_report',
                         'cash_report_details': 'can_view_cash_report',
-                        'operators': 'can_view_operators',
-                        'settings': 'can_manage_products',
+                        'operators': 'can_view_operators', 
+                        'delivery_report': 'can_view_delivery_report',
+                        'settings': 'can_manage_settings',
                         'pdv': 'can_view_attendance'
                       };
                       
@@ -488,7 +511,7 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
                       const hasMenuPermission = !operator || 
                                                operator.code?.toUpperCase() === 'ADMIN' || 
                                                operator.name?.toUpperCase().includes('ADMIN') || 
-                                               !permissionNeeded || hasPermission(permissionNeeded as any);
+                                               (permissionNeeded ? hasPermission(permissionNeeded as any) : false);
 
                       // Skip rendering this menu item if user doesn't have permission
                       if (!hasMenuPermission) return null;

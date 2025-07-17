@@ -265,7 +265,7 @@ const PDVDailyDeliveryReport: React.FC = () => {
   const filteredOrders = orders.filter(filterOrders);
 
   return (
-    <PermissionGuard hasPermission={hasPermission('can_view_orders')} showMessage={true}>
+    <PermissionGuard hasPermission={hasPermission('can_view_delivery_report')} showMessage={true}>
       <div className={`space-y-6 ${printMode ? 'print:bg-white print:p-0' : ''}`}>
         {/* Header - Hide in print mode */}
         {!printMode && (

@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { Package, MapPin, Clock, Users, LogOut, ShoppingBag, Settings } from 'lucide-react';
+import { Package, MapPin, Clock, Users, LogOut, ShoppingBag, Settings, Shield } from 'lucide-react';
 import ProductsPanel from './ProductsPanel';
 import NeighborhoodsPanel from './NeighborhoodsPanel';
 import StoreHoursPanel from './StoreHoursPanel';
 import UnifiedAttendancePage from '../UnifiedAttendancePage';
+import AttendanceCredentialsManager from '../Orders/AttendanceCredentialsManager';
 
 interface AdminPanelProps {
   onLogout: () => void;
 }
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'products' | 'neighborhoods' | 'hours' | 'pdv'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'neighborhoods' | 'hours' | 'pdv' | 'attendance'>('products');
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -22,6 +23,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
         return <StoreHoursPanel />; 
       case 'pdv':
         return <UnifiedAttendancePage />;
+      case 'attendance':
+        return <AttendanceCredentialsManager />;
       default:
         return <ProductsPanel />;
     }
@@ -100,6 +103,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
             >
               <Settings size={20} />
               PDV
+            </button>
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                activeTab === 'attendance'
+                  ? 'bg-indigo-600 text-white shadow-lg'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <Shield size={20} />
+              Atendimento
             </button>
           </div>
         </div>

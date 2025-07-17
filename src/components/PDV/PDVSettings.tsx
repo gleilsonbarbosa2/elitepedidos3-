@@ -226,7 +226,7 @@ const PDVSettings: React.FC = () => {
     });
 
   return (
-    <PermissionGuard hasPermission={hasPermission('can_manage_products')} showMessage={true}>
+    <PermissionGuard hasPermission={hasPermission('can_manage_settings')} showMessage={true}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
