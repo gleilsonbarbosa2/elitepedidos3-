@@ -1,50 +1,187 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Minus, ShoppingCart, Check } from 'lucide-react';
-import { Product, ProductSize, ComplementGroup, SelectedComplement, Complement } from '../../types/product';
-import { isProductAvailable, getAvailabilityMessage } from '../../utils/availability';
-import { useImageUpload } from '../../hooks/useImageUpload';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { usePermissions } from '../../hooks/usePermissions';
+import PermissionGuard from '../PermissionGuard';
+import { 
+  Truck, Calendar, Clock, Printer, Download, 
+  ArrowDownCircle, ArrowUpCircle, RefreshCw, 
+  ShoppingCart, Filter, Search, PieChart,
+  User, CreditCard, FileText, ChevronDown, ChevronUp,
+  DollarSign
+} from 'lucide-react';
 
-interface ProductModalProps {
-  product: Product;
-  isOpen: boolean;
-  onClose: () => void;
-  onAddToCart: (product: Product, selectedSize?: ProductSize, quantity: number, observations?: string, selectedComplements?: SelectedComplement[]) => void;
+interface DeliveryOrder {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_address: string;
+  customer_neighborhood: string;
+  payment_method: string;
+  delivery_fee: number;
+  total_price: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
 }
 
-const ProductModal: React.FC<ProductModalProps> = ({ 
-  product, 
-  isOpen, 
-  onClose, 
-  onAddToCart 
-}) => {
-  const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(
-    product.sizes ? product.sizes[0] : undefined
-  );
-  const [quantity, setQuantity] = useState(1);
-  const [observations, setObservations] = useState('');
-  const [selectedComplements, setSelectedComplements] = useState<SelectedComplement[]>([]);
-  const [productImage, setProductImage] = useState<string | null>(null);
-  const hasSetCustomImage = useRef<boolean>(false);
+interface DeliverySummary {
+  date: string;
+  delivery_fees_total: number;
+  orders: {
+    total: number;
+    count: number;
+    by_status: Record<string, { total: number; count: number }>;
+    by_payment: Record<string, { total: number; count: number }>;
+    by_neighborhood: Record<string, { total: number; count: number }>;
+  };
+}
 
-  const { getProductImage } = useImageUpload();
-  
-  // Fetch product image when component mounts or product changes
+const PDVDailyDeliveryReport: React.FC = () => {
+  const { hasPermission } = usePermissions();
+  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [summary, setSummary] = useState<DeliverySummary | null>(null);
+  const [orders, setOrders] = useState<DeliveryOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [printMode, setPrintMode] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    byStatus: true,
+    byPayment: true,
+    byNeighborhood: true
+  });
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterPayment, setFilterPayment] = useState<string>('all');
+  const [filterNeighborhood, setFilterNeighborhood] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
   useEffect(() => {
-    const loadProductImage = async () => {
-      try {
-        const image = await getProductImage(product.id);
-        // Only set the image if we haven't set a custom image yet
-        if (image && !hasSetCustomImage.current) {
-          setProductImage(image);
-          hasSetCustomImage.current = true;
+    fetchDailyReport();
+  }, [date]);
+
+  const fetchDailyReport = async () => {
+    setLoading(true);
+    try {
+      // Get orders for the selected date
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .gte('created_at', `${date}T00:00:00`)
+        .lte('created_at', `${date}T23:59:59`)
+        .order('created_at', { ascending: false });
+
+      if (ordersError) throw ordersError;
+
+      setOrders(ordersData || []);
+
+      // Calculate summary
+      const byStatus: Record<string, { total: number; count: number }> = {};
+      const byPayment: Record<string, { total: number; count: number }> = {};
+      const byNeighborhood: Record<string, { total: number; count: number }> = {};
+      let deliveryFeesTotal = 0;
+
+      (ordersData || []).forEach(order => {
+        // Sum delivery fees
+        deliveryFeesTotal += order.delivery_fee || 0;
+        
+        // By status
+        if (!byStatus[order.status]) {
+          byStatus[order.status] = { total: 0, count: 0 };
         }
-      } catch (error) {
-        console.error('Error loading product image:', error);
-      }
-    };
+        byStatus[order.status].total += order.total_price;
+        byStatus[order.status].count += 1;
+
+        // By payment method
+        if (!byPayment[order.payment_method]) {
+          byPayment[order.payment_method] = { total: 0, count: 0 };
+        }
+        byPayment[order.payment_method].total += order.total_price;
+        byPayment[order.payment_method].count += 1;
+
+        // By neighborhood
+        if (!byNeighborhood[order.customer_neighborhood]) {
+          byNeighborhood[order.customer_neighborhood] = { total: 0, count: 0 };
+        }
+        byNeighborhood[order.customer_neighborhood].total += order.total_price;
+        byNeighborhood[order.customer_neighborhood].count += 1;
+      });
+
+      const summaryData: DeliverySummary = {
+        date,
+        orders: {
+          total: (ordersData || []).reduce((sum, order) => sum + order.total_price, 0),
+          count: (ordersData || []).length,
+          by_status: byStatus,
+          by_payment: byPayment,
+          by_neighborhood: byNeighborhood
+        },
+        delivery_fees_total: deliveryFeesTotal
+      };
+
+      setSummary(summaryData);
+    } catch (error) {
+      console.error('Error fetching daily report:', error);
+      alert('Erro ao carregar relatório diário');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePrint = () => {
+    setPrintMode(true);
+    setTimeout(() => {
+      window.print();
+      setPrintMode(false);
+    }, 100);
+  };
+
+  const handleExport = () => {
+    if (!summary) return;
+
+    // Create CSV content
+    const headers = ['ID', 'Cliente', 'Telefone', 'Endereço', 'Bairro', 'Pagamento', 'Total', 'Status', 'Data/Hora'];
+    const rows = orders
+      .filter(filterOrders)
+      .map(order => [
+        order.id.slice(-8),
+        order.customer_name,
+        order.customer_phone,
+        order.customer_address,
+        order.customer_neighborhood,
+        getPaymentMethodLabel(order.payment_method),
+        formatPrice(order.total_price),
+        getStatusLabel(order.status),
+        formatDateTime(order.created_at)
+      ]);
     
-    loadProductImage();
-  }, [product.id, getProductImage]);
+    const summaryRows = [
+      ['', '', '', '', '', '', '', '', ''],
+      ['RESUMO DO DELIVERY', '', '', '', '', '', '', '', ''],
+      ['Total de Pedidos', summary.orders.count.toString(), '', '', '', '', '', '', ''],
+      ['Valor Total', formatPrice(summary.orders.total), '', '', '', '', '', '', ''],
+      ['', '', '', '', '', '', '', '', ''],
+      ['POR STATUS', '', '', '', '', '', '', '', ''],
+      ...Object.entries(summary.orders.by_status).map(([status, data]) => 
+        [getStatusLabel(status), data.count.toString(), formatPrice(data.total), '', '', '', '', '', '']
+      ),
+      ['', '', '', '', '', '', '', '', ''],
+      ['POR FORMA DE PAGAMENTO', '', '', '', '', '', '', '', ''],
+      ...Object.entries(summary.orders.by_payment).map(([payment, data]) => 
+        [getPaymentMethodLabel(payment), data.count.toString(), formatPrice(data.total), '', '', '', '', '', '']
+      )
+    ];
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(',')),
+      ...summaryRows.map(row => row.join(','))
+    ].join('\n');
+    
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `relatorio-delivery-${date}.csv`;
+    link.click();
+  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -53,315 +190,606 @@ const ProductModal: React.FC<ProductModalProps> = ({
     }).format(price);
   };
 
-  const getCurrentPrice = () => {
-    return selectedSize ? selectedSize.price : product.price;
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString('pt-BR');
   };
 
-  const getComplementsPrice = () => {
-    return selectedComplements.reduce((total, selected) => total + selected.complement.price, 0);
+  const getPaymentMethodLabel = (method: string) => {
+    const labels: Record<string, string> = {
+      'money': 'Dinheiro',
+      'pix': 'PIX',
+      'card': 'Cartão'
+    };
+    return labels[method] || method;
   };
 
-  const getTotalPrice = () => {
-    return (getCurrentPrice() + getComplementsPrice()) * quantity;
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      'pending': 'Pendente',
+      'confirmed': 'Confirmado',
+      'preparing': 'Em Preparo',
+      'out_for_delivery': 'Saiu para Entrega',
+      'ready_for_pickup': 'Pronto para Retirada',
+      'delivered': 'Entregue',
+      'cancelled': 'Cancelado'
+    };
+    return labels[status] || status;
   };
 
-  const handleComplementChange = (group: ComplementGroup, complementId: string, checked: boolean) => {
-    setSelectedComplements(prev => {
-      const groupSelections = prev.filter(s => s.groupId === group.id);
-      
-      if (checked) {
-        // Verificar se pode adicionar mais itens
-        if (groupSelections.length >= group.maxItems) {
-          return prev;
-        }
-        
-        const complement = group.complements.find(c => c.id === complementId);
-        if (complement) {
-          return [...prev, {
-            groupId: group.id,
-            complementId,
-            complement
-          }];
-        }
-      } else {
-        // Remover item
-        return prev.filter(s => !(s.groupId === group.id && s.complementId === complementId));
-      }
-      
-      return prev;
-    });
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      'pending': 'text-yellow-600',
+      'confirmed': 'text-blue-600',
+      'preparing': 'text-orange-600',
+      'out_for_delivery': 'text-purple-600',
+      'ready_for_pickup': 'text-indigo-600',
+      'delivered': 'text-green-600',
+      'cancelled': 'text-red-600'
+    };
+    return colors[status] || 'text-gray-600';
   };
 
-  const handleRadioComplementChange = (group: ComplementGroup, complementId: string) => {
-    setSelectedComplements(prev => {
-      // Remove todas as seleções do grupo
-      const withoutGroup = prev.filter(s => s.groupId !== group.id);
-      
-      const complement = group.complements.find(c => c.id === complementId);
-      if (complement) {
-        return [...withoutGroup, {
-          groupId: group.id,
-          complementId,
-          complement
-        }];
-      }
-      
-      return withoutGroup;
-    });
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
   };
 
-  const isComplementSelected = (groupId: string, complementId: string) => {
-    return selectedComplements.some(s => s.groupId === groupId && s.complementId === complementId);
-  };
-
-  const getGroupSelectionCount = (groupId: string) => {
-    return selectedComplements.filter(s => s.groupId === groupId).length;
-  };
-
-  const canAddToCart = () => {
-    if (!product.complementGroups) return true;
+  const filterOrders = (order: DeliveryOrder) => {
+    // Filter by status
+    if (filterStatus !== 'all' && order.status !== filterStatus) {
+      return false;
+    }
     
-    return product.complementGroups.every(group => {
-      const selectionCount = getGroupSelectionCount(group.id);
-      return selectionCount >= group.minItems && selectionCount <= group.maxItems;
-    });
+    // Filter by payment method
+    if (filterPayment !== 'all' && order.payment_method !== filterPayment) {
+      return false;
+    }
+    
+    // Filter by neighborhood
+    if (filterNeighborhood !== 'all' && order.customer_neighborhood !== filterNeighborhood) {
+      return false;
+    }
+    
+    // Filter by search term
+    if (searchTerm && !order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !order.customer_phone.includes(searchTerm) &&
+        !order.id.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false;
+    }
+    
+    return true;
   };
 
-  const handleAddToCart = () => {
-    onAddToCart(product, selectedSize, quantity, observations, selectedComplements);
-    onClose();
-    setQuantity(1);
-    setObservations('');
-    setSelectedComplements([]);
-  };
-
-  const isAvailable = isProductAvailable(product);
-  const availabilityMessage = getAvailabilityMessage(product);
-
-  // Use the fetched image or fall back to the default product image
-  // Once we've set a custom image, we'll always use that
-  const imageToShow = hasSetCustomImage.current && productImage ? productImage : product.image;
-
-  if (!isOpen) return null;
+  const filteredOrders = orders.filter(filterOrders);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="relative">
-          <img
-            src={imageToShow}
-            alt={product.name}
-            className="w-full h-48 object-cover rounded-t-2xl"
-          />
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full p-2 hover:bg-white transition-colors"
-          >
-            <X size={20} />
-          </button>
-          
-          {product.originalPrice && (
-            <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-              PROMOÇÃO
+    <PermissionGuard hasPermission={hasPermission('can_view_orders')} showMessage={true}>
+      <div className={`space-y-6 ${printMode ? 'print:bg-white print:p-0' : ''}`}>
+        {/* Header - Hide in print mode */}
+        {!printMode && (
+          <div className="flex items-center justify-between print:hidden">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                <Truck size={24} className="text-purple-600" />
+                Relatório de Delivery Diário
+              </h2>
+              <p className="text-gray-600">Resumo completo dos pedidos de delivery do dia</p>
             </div>
-          )}
-        </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={handlePrint}
+                className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Printer size={16} />
+                Imprimir
+              </button>
+              <button
+                onClick={handleExport}
+                disabled={!summary}
+                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Download size={16} />
+                Exportar CSV
+              </button>
+            </div>
+          </div>
+        )}
 
-        <div className="p-6">
-          <div className="mb-4">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">{product.name}</h2>
-            <p className="text-gray-600 mb-2">{product.description}</p>
-            
-            {/* Status de Disponibilidade */}
-            <div className={`flex items-center gap-2 text-sm mb-3 ${
-              isAvailable ? 'text-green-600' : 'text-red-600'
-            }`}>
-              <Check size={16} />
-              <span className="font-medium">{availabilityMessage}</span>
+      {/* Print Header - Only show in print mode */}
+      {printMode && (
+        <div className="print-header">
+          <h1 className="text-2xl font-bold text-center">Relatório de Delivery Diário - Elite Açaí</h1>
+          <p className="text-center text-gray-600">
+            Data: {new Date(date).toLocaleDateString('pt-BR')}
+          </p>
+          <p className="text-center text-gray-500 text-sm">Gerado em: {new Date().toLocaleString('pt-BR')}</p>
+          <hr className="my-4" />
+        </div>
+      )}
+
+      {/* Date Selector - Hide in print mode */}
+      {!printMode && (
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex flex-col md:flex-row gap-4 items-end">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Data do Relatório
+              </label>
+              <div className="relative">
+                <Calendar size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
             
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-green-600">
-                {formatPrice(getCurrentPrice())}
-              </span>
-              {product.originalPrice && (
-                <span className="text-lg text-gray-500 line-through">
-                  {formatPrice(product.originalPrice)}
-                </span>
-              )}
+            <div className="w-full md:w-auto">
+              <button
+                onClick={fetchDailyReport}
+                className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2 w-full md:w-auto justify-center"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Carregando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={16} />
+                    Atualizar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        </div>
+      ) : !summary ? (
+        <div className="bg-white rounded-xl shadow-sm p-8 text-center">
+          <Truck size={48} className="mx-auto text-gray-300 mb-4" />
+          <h3 className="text-lg font-medium text-gray-600 mb-2">
+            Nenhum pedido de delivery encontrado
+          </h3>
+          <p className="text-gray-500">
+            Não há pedidos de delivery para a data selecionada.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-purple-100 rounded-full p-3">
+                  <Truck size={24} className="text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Total de Pedidos</h3>
+                  <p className="text-3xl font-bold text-purple-600">{summary.orders.count}</p>
+                </div>
+              </div>
+              <div className="text-sm text-gray-600">
+                Data: {new Date(date).toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-blue-100 rounded-full p-3">
+                  <DollarSign size={24} className="text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Total de Taxas</h3>
+                  <p className="text-3xl font-bold text-blue-600">{formatPrice(summary.delivery_fees_total)}</p>
+                </div>
+              </div>
+              <div className="text-sm text-gray-600">
+                Taxa média: {formatPrice(summary.orders.count > 0 ? summary.delivery_fees_total / summary.orders.count : 0)}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-green-100 rounded-full p-3">
+                  <ArrowDownCircle size={24} className="text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Faturamento Total</h3>
+                  <p className="text-3xl font-bold text-green-600">{formatPrice(summary.orders.total)}</p>
+                </div>
+              </div>
+              <div className="text-sm text-gray-600">
+                Ticket Médio: {formatPrice(summary.orders.count > 0 ? summary.orders.total / summary.orders.count : 0)}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-blue-100 rounded-full p-3">
+                  <Clock size={24} className="text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Status dos Pedidos</h3>
+                  <div className="flex gap-2 mt-2">
+                    {Object.entries(summary.orders.by_status).map(([status, data]) => (
+                      <div 
+                        key={status}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          status === 'delivered' ? 'bg-green-100 text-green-800' :
+                          status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}
+                      >
+                        {getStatusLabel(status)}: {data.count}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Seleção de Tamanho */}
-          {product.sizes && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Escolha o tamanho:</h3>
-              <div className="space-y-2">
-                {product.sizes.map((size) => (
-                  <button
-                    key={size.id}
-                    onClick={() => setSelectedSize(size)}
-                    className={`w-full p-3 rounded-lg border-2 transition-all ${
-                      selectedSize?.id === size.id
-                        ? 'border-purple-500 bg-purple-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
+          {/* Filters - Hide in print mode */}
+          {!printMode && (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <Filter size={20} className="text-gray-600" />
+                  Filtros
+                </h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
-                    <div className="flex justify-between items-center">
-                      <div className="text-left">
-                        <div className="font-medium">{size.name}</div>
-                        {size.description && (
-                          <div className="text-sm text-gray-500">{size.description}</div>
-                        )}
+                    <option value="all">Todos os status</option>
+                    {Object.entries(summary.orders.by_status).map(([status, _]) => (
+                      <option key={status} value={status}>{getStatusLabel(status)}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Forma de Pagamento
+                  </label>
+                  <select
+                    value={filterPayment}
+                    onChange={(e) => setFilterPayment(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="all">Todas as formas</option>
+                    {Object.entries(summary.orders.by_payment).map(([payment, _]) => (
+                      <option key={payment} value={payment}>{getPaymentMethodLabel(payment)}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bairro
+                  </label>
+                  <select
+                    value={filterNeighborhood}
+                    onChange={(e) => setFilterNeighborhood(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="all">Todos os bairros</option>
+                    {Object.entries(summary.orders.by_neighborhood).map(([neighborhood, _]) => (
+                      <option key={neighborhood} value={neighborhood}>{neighborhood}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Busca
+                  </label>
+                  <div className="relative">
+                    <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Nome, telefone ou ID"
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Orders List */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">Lista de Pedidos</h3>
+              <p className="text-sm text-gray-600">
+                {filteredOrders.length} pedido(s) encontrado(s)
+              </p>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">ID</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Cliente</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Bairro</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Pagamento</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Data/Hora</th>
+                    <th className="text-right py-3 px-4 font-medium text-gray-700">Taxa</th>
+                    <th className="text-right py-3 px-4 font-medium text-gray-700">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-4 text-center text-gray-500">
+                        Nenhum pedido encontrado com os filtros selecionados.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredOrders.map((order) => (
+                      <tr key={order.id} className="hover:bg-gray-50">
+                        <td className="py-3 px-4">
+                          <span className="font-mono text-sm">#{order.id.slice(-8)}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div>
+                            <p className="font-medium text-gray-800">{order.customer_name}</p>
+                            <p className="text-sm text-gray-600">{order.customer_phone}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-sm">{order.customer_neighborhood}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-sm">{getPaymentMethodLabel(order.payment_method)}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                            order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                            order.status === 'out_for_delivery' ? 'bg-purple-100 text-purple-800' :
+                            order.status === 'preparing' ? 'bg-orange-100 text-orange-800' :
+                            order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {getStatusLabel(order.status)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-sm">{formatDateTime(order.created_at)}</span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="font-medium text-blue-600">{formatPrice(order.delivery_fee || 0)}</span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="font-semibold text-green-600">{formatPrice(order.total_price)}</span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Summary Sections */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* By Status */}
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div 
+                className="flex items-center justify-between mb-4 cursor-pointer"
+                onClick={() => toggleSection('byStatus')}
+              >
+                <h3 className="text-lg font-semibold text-gray-800">Por Status</h3>
+                {expandedSections.byStatus ? 
+                  <ChevronUp size={20} className="text-gray-500" /> : 
+                  <ChevronDown size={20} className="text-gray-500" />}
+              </div>
+              
+              {expandedSections.byStatus && (
+                <div className="space-y-4">
+                  {Object.entries(summary.orders.by_status).map(([status, data]) => (
+                    <div key={status} className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-3 h-3 rounded-full ${
+                          status === 'delivered' ? 'bg-green-500' :
+                          status === 'cancelled' ? 'bg-red-500' :
+                          status === 'out_for_delivery' ? 'bg-purple-500' :
+                          status === 'preparing' ? 'bg-orange-500' :
+                          status === 'confirmed' ? 'bg-blue-500' :
+                          'bg-yellow-500'
+                        }`}></span>
+                        <span className="text-sm font-medium">{getStatusLabel(status)}</span>
                       </div>
-                      <div className="font-bold text-purple-600">
-                        {formatPrice(size.price)}
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{data.count} pedidos</p>
+                        <p className="text-xs text-gray-600">{formatPrice(data.total)}</p>
                       </div>
                     </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Grupos de Complementos */}
-          {product.complementGroups && product.complementGroups.map((group) => (
-            <div key={group.id} className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold text-gray-800">{group.name}</h3>
-                <span className="text-sm text-gray-500">
-                  {getGroupSelectionCount(group.id)}/{group.maxItems}
-                </span>
-              </div>
-              
-              {group.required && (
-                <p className="text-sm text-red-600 mb-2">* Obrigatório</p>
-              )}
-              
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {group.complements.map((complement) => {
-                  const isSelected = isComplementSelected(group.id, complement.id);
-                  const groupCount = getGroupSelectionCount(group.id);
-                  const canSelect = groupCount < group.maxItems || isSelected;
-                  const isRadio = group.maxItems === 1;
+                  ))}
                   
-                  return (
-                    <label
-                      key={complement.id}
-                      className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
-                        isSelected
-                          ? 'border-green-500 bg-green-50'
-                          : canSelect
-                          ? 'border-gray-200 hover:border-gray-300'
-                          : 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type={isRadio ? 'radio' : 'checkbox'}
-                          name={isRadio ? `group-${group.id}` : undefined}
-                          checked={isSelected}
-                          disabled={!canSelect}
-                          onChange={(e) => {
-                            if (isRadio) {
-                              handleRadioComplementChange(group, complement.id);
-                            } else {
-                              handleComplementChange(group, complement.id, e.target.checked);
-                            }
-                          }}
-                          className="w-4 h-4 text-green-600"
-                        />
-                        <div>
-                          <div className="font-medium text-gray-800">{complement.name}</div>
-                          {complement.description && (
-                            <div className="text-sm text-gray-500">{complement.description}</div>
-                          )}
+                  <div className="pt-4 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Total</span>
+                      <div className="text-right space-y-1">
+                        <p className="font-medium text-gray-800">{summary.orders.count} pedidos</p>
+                        <p className="font-medium text-blue-600">Taxas: {formatPrice(summary.delivery_fees_total)}</p>
+                        <p className="font-medium text-green-600">Total: {formatPrice(summary.orders.total)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* By Payment Method */}
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div 
+                className="flex items-center justify-between mb-4 cursor-pointer"
+                onClick={() => toggleSection('byPayment')}
+              >
+                <h3 className="text-lg font-semibold text-gray-800">Por Forma de Pagamento</h3>
+                {expandedSections.byPayment ? 
+                  <ChevronUp size={20} className="text-gray-500" /> : 
+                  <ChevronDown size={20} className="text-gray-500" />}
+              </div>
+              
+              {expandedSections.byPayment && (
+                <div className="space-y-4">
+                  {Object.entries(summary.orders.by_payment).map(([payment, data]) => (
+                    <div key={payment} className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-3 h-3 rounded-full ${
+                          payment === 'money' ? 'bg-green-500' :
+                          payment === 'pix' ? 'bg-blue-500' :
+                          'bg-purple-500'
+                        }`}></span>
+                        <span className="text-sm font-medium">{getPaymentMethodLabel(payment)}</span>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{data.count} pedidos</p>
+                        <p className="text-xs text-gray-600">{formatPrice(data.total)}</p>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div className="pt-4 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Total</span>
+                      <div className="text-right space-y-1">
+                        <p className="font-medium text-gray-800">{summary.orders.count} pedidos</p>
+                        <p className="font-medium text-blue-600">Taxas: {formatPrice(summary.delivery_fees_total)}</p>
+                        <p className="font-medium text-green-600">Total: {formatPrice(summary.orders.total)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* By Neighborhood */}
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <div 
+                className="flex items-center justify-between mb-4 cursor-pointer"
+                onClick={() => toggleSection('byNeighborhood')}
+              >
+                <h3 className="text-lg font-semibold text-gray-800">Por Bairro</h3>
+                {expandedSections.byNeighborhood ? 
+                  <ChevronUp size={20} className="text-gray-500" /> : 
+                  <ChevronDown size={20} className="text-gray-500" />}
+              </div>
+              
+              {expandedSections.byNeighborhood && (
+                <div className="space-y-4">
+                  {Object.entries(summary.orders.by_neighborhood)
+                    .sort((a, b) => b[1].count - a[1].count)
+                    .map(([neighborhood, data]) => (
+                      <div key={neighborhood} className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-indigo-500"></span>
+                          <span className="text-sm font-medium">{neighborhood}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium">{data.count} pedidos</p>
+                          <p className="text-xs text-gray-600">{formatPrice(data.total)}</p>
                         </div>
                       </div>
-                      <div className="font-bold text-green-600">
-                        {complement.price > 0 ? formatPrice(complement.price) : 'Grátis'}
+                    ))}
+                  
+                  <div className="pt-4 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Total</span>
+                      <div className="text-right space-y-1">
+                        <p className="font-medium text-gray-800">{summary.orders.count} pedidos</p>
+                        <p className="font-medium text-blue-600">Taxas: {formatPrice(summary.delivery_fees_total)}</p>
+                        <p className="font-medium text-green-600">Total: {formatPrice(summary.orders.total)}</p>
                       </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-
-          {/* Observações */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Observações:</h3>
-            <textarea
-              value={observations}
-              onChange={(e) => setObservations(e.target.value)}
-              placeholder="Ex: Sem açúcar, mais granola..."
-              className="w-full p-3 border border-gray-300 rounded-lg resize-none h-20 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          {/* Quantidade */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Quantidade:</h3>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
-              >
-                <Minus size={20} />
-              </button>
-              <span className="text-xl font-semibold w-8 text-center">{quantity}</span>
-              <button
-                onClick={() => setQuantity(quantity + 1)}
-                className="bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
-              >
-                <Plus size={20} />
-              </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+        </>
+      )}
 
-          {/* Resumo do Preço */}
-          {getComplementsPrice() > 0 && (
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <div className="flex justify-between text-sm text-gray-600 mb-1">
-                <span>Produto base:</span>
-                <span>{formatPrice(getCurrentPrice())}</span>
-              </div>
-              <div className="flex justify-between text-sm text-gray-600 mb-1">
-                <span>Complementos:</span>
-                <span>{formatPrice(getComplementsPrice())}</span>
-              </div>
-              <div className="flex justify-between text-sm text-gray-600 mb-1">
-                <span>Quantidade:</span>
-                <span>{quantity}x</span>
-              </div>
-              <hr className="my-2" />
-              <div className="flex justify-between font-semibold">
-                <span>Total:</span>
-                <span>{formatPrice(getTotalPrice())}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Botão Adicionar */}
-          <button
-            onClick={handleAddToCart}
-            disabled={!canAddToCart() || !isAvailable}
-            className={`w-full py-4 rounded-lg font-semibold text-lg transition-colors flex items-center justify-center gap-2 ${
-              !canAddToCart() || !isAvailable
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-green-500 hover:bg-green-600 text-white'
-            }`}
-          >
-            <ShoppingCart size={20} />
-            {!canAddToCart() 
-              ? 'Complete as opções obrigatórias'
-              : `Adicionar - ${formatPrice(getTotalPrice())}`
-            }
-          </button>
-        </div>
-      </div>
+      {/* Print Styles */}
+      <style jsx>{`
+        @media print {
+          @page {
+            size: portrait;
+            margin: 10mm;
+          }
+          
+          body {
+            font-family: Arial, sans-serif;
+            color: #000;
+            background: #fff;
+          }
+          
+          .print\\:hidden {
+            display: none !important;
+          }
+          
+          table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+          
+          th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+          }
+          
+          th {
+            background-color: #f2f2f2;
+          }
+          
+          .print-header {
+            text-align: center;
+            margin-bottom: 20px;
+          }
+          
+          .print-header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+          }
+          
+          .print-header p {
+            font-size: 14px;
+            color: #666;
+          }
+        }
+      `}</style>
     </div>
+    </PermissionGuard>
   );
 };
 
-export default ProductModal;
+export default PDVDailyDeliveryReport;

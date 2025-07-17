@@ -26,7 +26,6 @@ interface OrderState {
     name: string;
     price: number;
     size?: string;
-    size?: string;
     quantity: number;
     complements?: string[];
   }>;
@@ -145,6 +144,17 @@ const AcaiChatbot: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Function to get welcome quick replies
+  const getWelcomeQuickReplies = () => {
+    return [
+      { text: '🛒 Fazer um pedido', value: 'quero fazer um pedido' },
+      { text: '📋 Ver cardápio', value: 'cardápio' },
+      { text: '🔥 Ver promoções', value: 'promoções' },
+      { text: '📍 Horários e localização', value: 'horários' },
+      { text: '💰 Cashback', value: 'cashback' }
+    ];
+  };
 
   // Improved response generation function
   const generateResponse = (userMessage: string): string => {
@@ -285,10 +295,6 @@ const AcaiChatbot: React.FC = () => {
       // Check if exceeding limits
       if (type === 'creme' && items.length > maxCremes) {
         return `⚠️ Você selecionou ${items.length} cremes, mas o limite para este tamanho é ${maxCremes}. Por favor, selecione no máximo ${maxCremes} cremes.`;
-      }
-      
-      if (type === 'mix' && items.length > maxMix) {
-        return `⚠️ Você selecionou ${items.length} mix, mas o limite para este tamanho é ${maxMix}. Por favor, selecione no máximo ${maxMix} mix.`;
       }
       
       return null;
@@ -628,10 +634,10 @@ const AcaiChatbot: React.FC = () => {
         if (addressMatch || nameMatch || phoneMatch) {
           setOrderState(prev => ({
             ...prev,
-            complements: selectedComplements.map(comp => ({
-              name: comp,
-              price: 0
-            }))
+            customerAddress: addressMatch ? addressMatch[1] : prev.customerAddress,
+            customerName: nameMatch ? nameMatch[1] : prev.customerName,
+            customerPhone: phoneMatch ? phoneMatch[1] : prev.customerPhone,
+            stage: 'product_selection'
           }));
         }
       }
