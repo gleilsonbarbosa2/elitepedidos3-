@@ -55,6 +55,17 @@ const CashRegisterCloseDialog: React.FC<CashRegisterCloseDialogProps> = ({
     }
 
     try {
+      console.log('📊 Dados para WhatsApp:', { 
+        register, 
+        summary,
+        opening_amount: register.opening_amount,
+        sales_total: summary?.sales_total,
+        delivery_total: summary?.delivery_total,
+        other_income_total: summary?.other_income_total,
+        total_expense: summary?.total_expense,
+        expected_balance: summary?.expected_balance
+      });
+      
       let message = `*RELATÓRIO DE CAIXA - ELITE AÇAÍ*\n\n`;
     
       // Dados do caixa
@@ -66,16 +77,24 @@ const CashRegisterCloseDialog: React.FC<CashRegisterCloseDialogProps> = ({
     
       // Resumo financeiro
       message += `*RESUMO FINANCEIRO:*\n`;
-      message += `Vendas PDV: ${formatPrice(summary.sales_total || 0)}\n`;
-      message += `Vendas Delivery: ${formatPrice(summary.delivery_total || 0)}\n`;
-      message += `Outras entradas: ${formatPrice(summary.other_income_total || 0)}\n`;
-      message += `Saídas: ${formatPrice(summary.total_expense || 0)}\n`;
-      message += `Saldo esperado: ${formatPrice(summary.expected_balance || 0)}\n`;
-      message += `Diferença: ${formatPrice((register.closing_amount || 0) - (summary.expected_balance || 0))}\n\n`;
+      message += `Vendas PDV: ${formatPrice(summary?.sales_total || 0)}\n`;
+      message += `Vendas Delivery: ${formatPrice(summary?.delivery_total || 0)}\n`;
+      message += `Outras entradas: ${formatPrice(summary?.other_income_total || 0)}\n`;
+      message += `Saídas: ${formatPrice(summary?.total_expense || 0)}\n`;
+      message += `Saldo esperado: ${formatPrice(summary?.expected_balance || 0)}\n`;
+      
+      const difference = (register.closing_amount || 0) - (summary?.expected_balance || 0);
+      message += `Diferença: ${formatPrice(difference)}`;
+      if (difference > 0) {
+        message += ` (sobra)`;
+      } else if (difference < 0) {
+        message += ` (falta)`;
+      }
+      message += `\n\n`;
     
       // Formas de pagamento
       message += `*FORMAS DE PAGAMENTO:*\n`;
-      if (summary.sales && typeof summary.sales === 'object') {
+      if (summary?.sales && typeof summary.sales === 'object') {
         const paymentMethods: Record<string, number> = {};
       
         // Extract payment methods from sales data
@@ -94,6 +113,8 @@ const CashRegisterCloseDialog: React.FC<CashRegisterCloseDialogProps> = ({
           const methodName = getPaymentMethodName(method);
           message += `${methodName}: ${formatPrice(total)}\n`;
         });
+      } else {
+        message += `Dinheiro: ${formatPrice(summary?.sales_total || 0)}\n`;
       }
     
       message += `\n*Relatório gerado em:* ${new Date().toLocaleString('pt-BR')}`;
