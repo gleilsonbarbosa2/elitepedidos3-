@@ -13,7 +13,6 @@ const PDVOperators: React.FC = () => {
   const [editingOperator, setEditingOperator] = useState<PDVOperator | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
     fetchOperators();
@@ -62,211 +61,6 @@ const PDVOperators: React.FC = () => {
     setIsCreating(true);
   };
 
-  const showSuccessNotification = (isCreating: boolean, operatorCode: string) => {
-    // Criar notificação moderna
-    const notification = document.createElement('div');
-    notification.className = 'fixed top-4 right-4 z-50 transform transition-all duration-500 ease-out translate-x-full';
-    notification.innerHTML = `
-      <div class="bg-white rounded-xl shadow-2xl border border-green-200 p-6 max-w-sm w-full">
-        <div class="flex items-start gap-4">
-          <div class="bg-green-100 rounded-full p-3 flex-shrink-0">
-            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-          </div>
-          <div class="flex-1">
-            <h3 class="text-lg font-bold text-gray-900 mb-2">
-              ${isCreating ? '🎉 Operador Criado!' : '✅ Operador Atualizado!'}
-            </h3>
-            <p class="text-gray-700 mb-3">
-              ${isCreating ? 'Novo operador criado' : 'Operador atualizado'} com sucesso!
-            </p>
-            <div class="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-3 mb-3">
-              <p class="text-sm font-medium text-blue-800 mb-1">
-                🔑 Código de Login:
-              </p>
-              <div class="flex items-center gap-2">
-                <code class="bg-white px-3 py-1 rounded-md font-mono text-lg font-bold text-purple-700 border border-purple-200">
-                  ${operatorCode}
-                </code>
-                <button 
-                  onclick="navigator.clipboard.writeText('${operatorCode}'); this.innerHTML='✅ Copiado!'; setTimeout(() => this.innerHTML='📋 Copiar', 2000)"
-                  class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded transition-colors"
-                >
-                  📋 Copiar
-                </button>
-              </div>
-            </div>
-            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-              <p class="text-xs text-yellow-800">
-                💡 <strong>Dica:</strong> Use este código para fazer login no PDV junto com a senha configurada.
-              </p>
-            </div>
-            <div class="flex gap-2">
-              <button 
-                onclick="window.location.href='/pdv'" 
-                class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                🚀 Testar Login
-              </button>
-              <button 
-                onclick="this.closest('.fixed').remove()" 
-                class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Animar entrada
-    setTimeout(() => {
-      notification.classList.remove('translate-x-full');
-      notification.classList.add('translate-x-0');
-    }, 100);
-    
-    // Auto-remover após 8 segundos
-    setTimeout(() => {
-      if (document.body.contains(notification)) {
-        notification.classList.add('translate-x-full');
-        setTimeout(() => {
-          if (document.body.contains(notification)) {
-            document.body.removeChild(notification);
-          }
-        }, 500);
-      }
-    }, 8000);
-  };
-
-  const handleCreateTestOperator = async () => {
-    if (confirm('Criar operador de teste? (Código: TESTE, Senha: 123456)')) {
-      try {
-        console.log('🧪 Criando operador de teste...');
-        
-        const testOperator = {
-          name: 'Operador Teste',
-          code: 'TESTE',
-          password_hash: '123456',
-          is_active: true,
-          permissions: {
-            can_discount: true,
-            can_cancel: true,
-            can_manage_products: true,
-            can_view_sales: true,
-            can_view_cash_register: true,
-            can_view_products: true,
-            can_view_orders: true,
-            can_view_reports: true,
-            can_view_sales_report: true,
-            can_view_cash_report: true,
-            can_view_operators: true,
-            can_view_delivery_report: true,
-            can_view_attendance: true,
-            can_use_scale: true,
-            can_manage_settings: true,
-            can_view_cash_menu: true,
-            can_view_daily_cash_report: true,
-            can_view_cash_report_details: true,
-            can_view_delivery_orders: true,
-            can_manage_manual_orders: true,
-            can_print_receipts: true,
-            can_access_admin: true
-          }
-        };
-        
-        const { data, error } = await supabase
-          .from('pdv_operators')
-          .insert([testOperator])
-          .select()
-          .single();
-
-        if (error) {
-          console.error('❌ Erro ao criar operador de teste:', error);
-          alert(`Erro ao criar operador de teste: ${error.message}`);
-          return;
-        }
-        
-        console.log('✅ Operador de teste criado:', data);
-        setOperators(prev => [...prev, data]);
-        
-        // Mostrar notificação moderna para operador de teste
-        const notification = document.createElement('div');
-        notification.className = 'fixed top-4 right-4 z-50 transform transition-all duration-500 ease-out translate-x-full';
-        notification.innerHTML = `
-          <div class="bg-white rounded-xl shadow-2xl border border-blue-200 p-6 max-w-sm w-full">
-            <div class="flex items-start gap-4">
-              <div class="bg-blue-100 rounded-full p-3 flex-shrink-0">
-                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                </svg>
-              </div>
-              <div class="flex-1">
-                <h3 class="text-lg font-bold text-gray-900 mb-2">
-                  🧪 Operador de Teste Criado!
-                </h3>
-                <div class="space-y-3">
-                  <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3">
-                    <p class="text-sm font-medium text-blue-800 mb-2">
-                      🔑 Credenciais de Teste:
-                    </p>
-                    <div class="space-y-2">
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs text-blue-700">Código:</span>
-                        <code class="bg-white px-2 py-1 rounded font-mono text-sm font-bold text-purple-700 border">TESTE</code>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs text-blue-700">Senha:</span>
-                        <code class="bg-white px-2 py-1 rounded font-mono text-sm font-bold text-purple-700 border">123456</code>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="bg-green-50 border border-green-200 rounded-lg p-3">
-                    <p class="text-xs text-green-800">
-                      ✅ <strong>Permissões:</strong> Acesso completo ao sistema (todas as funcionalidades habilitadas)
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  onclick="this.closest('.fixed').remove()" 
-                  class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Entendi
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-        
-        document.body.appendChild(notification);
-        
-        // Animar entrada
-        setTimeout(() => {
-          notification.classList.remove('translate-x-full');
-          notification.classList.add('translate-x-0');
-        }, 100);
-        
-        // Auto-remover após 10 segundos
-        setTimeout(() => {
-          if (document.body.contains(notification)) {
-            notification.classList.add('translate-x-full');
-            setTimeout(() => {
-              if (document.body.contains(notification)) {
-                document.body.removeChild(notification);
-              }
-            }, 500);
-          }
-        }, 10000);
-      } catch (error) {
-        console.error('Erro ao criar operador de teste:', error);
-        alert('Erro ao criar operador de teste');
-      }
-    }
-  };
-
   const handleSave = async () => {
     if (!editingOperator) return;
 
@@ -283,13 +77,6 @@ const PDVOperators: React.FC = () => {
     setSaving(true);
     try {
       if (isCreating) {
-        console.log('🆕 Criando novo operador:', {
-          name: editingOperator.name,
-          code: editingOperator.code,
-          password: editingOperator.password_hash ? '***' : 'VAZIO',
-          permissions: editingOperator.permissions
-        });
-        
         const { data, error } = await supabase
           .from('pdv_operators')
           .insert([{
@@ -302,16 +89,9 @@ const PDVOperators: React.FC = () => {
           .select()
           .single();
 
-        if (error) {
-          console.error('❌ Erro ao criar operador:', error);
-          throw error;
-        }
-        
-        console.log('✅ Operador criado com sucesso:', data);
+        if (error) throw error;
         setOperators(prev => [...prev, data]);
       } else {
-        console.log('✏️ Atualizando operador existente:', editingOperator.id);
-        
         const updates: Partial<PDVOperator> = {
           name: editingOperator.name,
           code: editingOperator.code,
@@ -321,7 +101,6 @@ const PDVOperators: React.FC = () => {
 
         // Só incluir senha se foi alterada
         if (editingOperator.password_hash) {
-          console.log('🔐 Atualizando senha do operador');
           updates.password_hash = editingOperator.password_hash;
         }
 
@@ -332,23 +111,15 @@ const PDVOperators: React.FC = () => {
           .select()
           .single();
 
-        if (error) {
-          console.error('❌ Erro ao atualizar operador:', error);
-          throw error;
-        }
-        
-        console.log('✅ Operador atualizado com sucesso:', data);
+        if (error) throw error;
         setOperators(prev => prev.map(op => op.id === data.id ? data : op));
       }
       
       setEditingOperator(null);
       setIsCreating(false);
-      
-      // Mostrar mensagem de sucesso moderna
-      showSuccessNotification(isCreating, editingOperator.code);
     } catch (error) {
       console.error('Erro ao salvar operador:', error);
-      alert(`Erro ao salvar operador: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      alert('Erro ao salvar operador');
     } finally {
       setSaving(false);
     }
@@ -409,57 +180,14 @@ const PDVOperators: React.FC = () => {
             </h2>
             <p className="text-gray-600">Configure os operadores do PDV</p>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowDebug(!showDebug)}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors text-sm"
-            >
-              Debug
-            </button>
-            <button
-              onClick={handleCreateTestOperator}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg transition-colors text-sm"
-            >
-              Criar Teste
-            </button>
-            <button
-              onClick={handleCreate}
-              className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-            >
-              <Plus size={20} />
-              Novo Operador
-            </button>
-          </div>
+          <button
+            onClick={handleCreate}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+          >
+            <Plus size={20} />
+            Novo Operador
+          </button>
         </div>
-
-      {/* Debug Section */}
-      {showDebug && (
-        <div className="bg-gray-900 text-green-400 rounded-lg p-4 font-mono text-sm">
-          <h3 className="text-white font-bold mb-3">🐛 Debug - Operadores</h3>
-          <div className="space-y-1">
-            <div>📊 Total de operadores: {operators.length}</div>
-            <div>🔍 Operadores ativos: {operators.filter(op => op.is_active).length}</div>
-            <div>🔍 Operadores inativos: {operators.filter(op => !op.is_active).length}</div>
-            <div className="mt-2 pt-2 border-t border-gray-600">
-              <div className="text-yellow-400 font-bold">📋 Lista de operadores:</div>
-              {operators.map(op => (
-                <div key={op.id} className="text-xs">
-                  • {op.code} - {op.name} ({op.is_active ? 'Ativo' : 'Inativo'})
-                </div>
-              ))}
-            </div>
-            <div className="mt-2 pt-2 border-t border-gray-600">
-              <div className="text-blue-400 font-bold">💡 Dicas para login:</div>
-              <div className="text-xs space-y-1">
-                <div>• Use o CÓDIGO do operador (não o nome)</div>
-                <div>• Verifique se o operador está ATIVO</div>
-                <div>• Para teste, use: ADMIN / elite2024</div>
-                <div>• Senhas são criptografadas automaticamente</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Search */}
       <div className="bg-white rounded-xl shadow-sm p-4">
@@ -789,42 +517,6 @@ const PDVOperators: React.FC = () => {
                           Pedidos
                         </span>
                       </label>
-                      
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={editingOperator.permissions.can_use_scale ?? true}
-                          onChange={(e) => setEditingOperator({
-                            ...editingOperator,
-                            permissions: {
-                              ...editingOperator.permissions,
-                              can_use_scale: e.target.checked
-                            }
-                          })}
-                          className="w-4 h-4 text-orange-600"
-                        />
-                        <span className="text-sm text-gray-700">
-                          Usar Balança
-                        </span>
-                      </label>
-                      
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={editingOperator.permissions.can_print_receipts ?? true}
-                          onChange={(e) => setEditingOperator({
-                            ...editingOperator,
-                            permissions: {
-                              ...editingOperator.permissions,
-                              can_print_receipts: e.target.checked
-                            }
-                          })}
-                          className="w-4 h-4 text-orange-600"
-                        />
-                        <span className="text-sm text-gray-700">
-                          Imprimir Recibos
-                        </span>
-                      </label>
                     </div>
                   </div>
                   
@@ -907,30 +599,12 @@ const PDVOperators: React.FC = () => {
                       <label className="flex items-center gap-2">
                         <input
                           type="checkbox"
-                          checked={editingOperator.permissions.can_view_delivery_report ?? false}
+                          checked={editingOperator.permissions.can_view_cash_report ?? true}
                           onChange={(e) => setEditingOperator({
                             ...editingOperator,
                             permissions: {
                               ...editingOperator.permissions,
-                              can_view_delivery_report: e.target.checked
-                            }
-                          })}
-                          className="w-4 h-4 text-orange-600"
-                        />
-                        <span className="text-sm text-gray-700">
-                          Delivery
-                        </span>
-                      </label>
-                      
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={editingOperator.permissions.can_view_daily_cash_report ?? true}
-                          onChange={(e) => setEditingOperator({
-                            ...editingOperator,
-                            permissions: {
-                              ...editingOperator.permissions,
-                              can_view_daily_cash_report: e.target.checked
+                              can_view_cash_report: e.target.checked
                             }
                           })}
                           className="w-4 h-4 text-orange-600"
@@ -943,12 +617,12 @@ const PDVOperators: React.FC = () => {
                       <label className="flex items-center gap-2">
                         <input
                           type="checkbox"
-                          checked={editingOperator.permissions.can_view_cash_report_details ?? true}
+                          checked={editingOperator.permissions.can_view_cash_report ?? true}
                           onChange={(e) => setEditingOperator({
                             ...editingOperator,
                             permissions: {
                               ...editingOperator.permissions,
-                              can_view_cash_report_details: e.target.checked
+                              can_view_cash_report: e.target.checked
                             }
                           })}
                           className="w-4 h-4 text-orange-600"
@@ -985,72 +659,18 @@ const PDVOperators: React.FC = () => {
                       <label className="flex items-center gap-2">
                         <input
                           type="checkbox"
-                          checked={editingOperator.permissions.can_manage_settings ?? false}
+                          checked={editingOperator.permissions.can_manage_products ?? false}
                           onChange={(e) => setEditingOperator({
                             ...editingOperator,
                             permissions: {
                               ...editingOperator.permissions,
-                              can_manage_settings: e.target.checked
+                              can_manage_products: e.target.checked
                             }
                           })}
                           className="w-4 h-4 text-orange-600"
                         />
                         <span className="text-sm text-gray-700">
                           Configurações
-                        </span>
-                      </label>
-                      
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={editingOperator.permissions.can_view_attendance ?? false}
-                          onChange={(e) => setEditingOperator({
-                            ...editingOperator,
-                            permissions: {
-                              ...editingOperator.permissions,
-                              can_view_attendance: e.target.checked
-                            }
-                          })}
-                          className="w-4 h-4 text-orange-600"
-                        />
-                        <span className="text-sm text-gray-700">
-                          Atendimento
-                        </span>
-                      </label>
-                      
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={editingOperator.permissions.can_manage_manual_orders ?? false}
-                          onChange={(e) => setEditingOperator({
-                            ...editingOperator,
-                            permissions: {
-                              ...editingOperator.permissions,
-                              can_manage_manual_orders: e.target.checked
-                            }
-                          })}
-                          className="w-4 h-4 text-orange-600"
-                        />
-                        <span className="text-sm text-gray-700">
-                          Pedidos Manuais
-                        </span>
-                      </label>
-                      
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={editingOperator.permissions.can_access_admin ?? false}
-                          onChange={(e) => setEditingOperator({
-                            ...editingOperator,
-                            permissions: {
-                              ...editingOperator.permissions,
-                              can_access_admin: e.target.checked
-                            }
-                          })}
-                          className="w-4 h-4 text-orange-600"
-                        />
-                        <span className="text-sm text-gray-700">
-                          Painel Admin
                         </span>
                       </label>
                     </div>

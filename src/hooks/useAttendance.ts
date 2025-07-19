@@ -5,30 +5,17 @@ interface AttendanceSession {
   user?: {
     id: string;
     username: string;
+    name: string;
     role: 'attendant' | 'admin';
+    permissions: {
+      can_view_orders: boolean;
+      can_update_status: boolean;
+      can_chat: boolean;
+      can_create_manual_orders: boolean;
+      can_print_orders: boolean;
+    };
   };
 }
-
-// Get credentials from localStorage (managed by AttendanceCredentialsManager)
-const getAttendanceCredentials = () => {
-  try {
-    const saved = localStorage.getItem('attendance_credentials');
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (error) {
-    console.error('Erro ao carregar credenciais:', error);
-  }
-  
-  // Fallback credentials
-  return {
-    users: [
-      { username: 'admin', password: 'elite2024', role: 'admin' as const },
-      { username: 'carol', password: 'elite2024', role: 'attendant' as const },
-      { username: 'sara', password: 'elite2024', role: 'attendant' as const }
-    ]
-  };
-};
 
 export const useAttendance = () => {
   const [session, setSession] = useState<AttendanceSession>({
@@ -36,39 +23,67 @@ export const useAttendance = () => {
   });
 
   const login = useCallback((username: string, password: string): boolean => {
-    const credentials = getAttendanceCredentials();
+    // Load users from localStorage
+    const savedUsers = localStorage.getItem('attendance_users');
+    let users = [];
     
-    console.log('🔐 Tentativa de login:', { username, password: '***' });
-    console.log('📋 Credenciais disponíveis:', credentials.users.map(u => ({ username: u.username, password: '***' })));
+    if (savedUsers) {
+      try {
+        users = JSON.parse(savedUsers);
+      } catch (error) {
+        console.error('Erro ao carregar usuários:', error);
+        return false;
+      }
+    } else {
+      // Default admin user if no users exist
+      users = [{
+        id: '1',
+        username: 'admin',
+        password: 'elite2024',
+        name: 'Administrador',
+        role: 'admin',
+        isActive: true,
+        permissions: {
+          can_view_orders: true,
+          can_update_status: true,
+          can_chat: true,
+          can_create_manual_orders: true,
+          can_print_orders: true
+        }
+      }];
+    }
     
-    const user = credentials.users.find(u => 
-      u.username.toLowerCase() === username.toLowerCase() && u.password === password
-    );
+    // Find user with matching credentials
+    const user = users.find(u => u.username === username && u.password === password && u.isActive);
     
     if (user) {
-      console.log('✅ Login de atendimento bem-sucedido para:', user.username);
+      console.log('Attendance login successful');
+      
+      // Update last login
+      const updatedUsers = users.map(u => 
+        u.id === user.id ? { ...u, last_login: new Date().toISOString() } : u
+      );
+      localStorage.setItem('attendance_users', JSON.stringify(updatedUsers));
+      
       setSession({
         isAuthenticated: true,
         user: {
-          id: user.username,
+          id: user.id,
           username: user.username,
-          role: user.role
+          name: user.name,
+          role: user.role,
+          permissions: user.permissions
         }
       });
       return true;
     }
     
-    console.log('❌ Login de atendimento falhou para:', username);
-    console.log('🔍 Verificação detalhada:');
-    credentials.users.forEach(u => {
-      console.log(`  - ${u.username}: username match = ${u.username.toLowerCase() === username.toLowerCase()}, password match = ${u.password === password}`);
-    });
-    
+    console.log('Attendance login failed');
     return false;
   }, []);
 
   const logout = useCallback(() => {
-    console.log('🚪 Logout de atendimento');
+    console.log('Attendance logout');
     setSession({
       isAuthenticated: false
     });

@@ -274,12 +274,6 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook, operator, st
 
   // Adicionar produto ao carrinho
   const handleAddProduct = async (product: PDVProduct) => {
-    // Check if user has permission to use scale for weighable products
-    if (product.is_weighable && !hasPermission('can_use_scale')) {
-      alert('Você não tem permissão para usar a balança.');
-      return;
-    }
-    
     if (product.is_weighable) {
       // Para produtos pesáveis, tentar ler o peso da balança
       setSelectedWeighableProduct(product);      

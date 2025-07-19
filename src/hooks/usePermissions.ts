@@ -13,17 +13,7 @@ type Permission =
   | 'can_view_sales_report'
   | 'can_view_cash_report'
   | 'can_view_attendance'
-  | 'can_view_operators'
-  | 'can_view_delivery_report'
-  | 'can_use_scale'
-  | 'can_manage_settings'
-  | 'can_view_cash_menu'
-  | 'can_view_daily_cash_report'
-  | 'can_view_cash_report_details'
-  | 'can_view_delivery_orders'
-  | 'can_manage_manual_orders'
-  | 'can_print_receipts'
-  | 'can_access_admin';
+  | 'can_view_operators';
 
 type PermissionMap = Record<Permission, boolean>;
 
@@ -40,17 +30,7 @@ export const usePermissions = (operator?: PDVOperator | null) => {
     can_view_sales_report: false,
     can_view_cash_report: false,
     can_view_attendance: false,
-    can_view_operators: false,
-    can_view_delivery_report: false,
-    can_use_scale: false,
-    can_manage_settings: false,
-    can_view_cash_menu: false,
-    can_view_daily_cash_report: false,
-    can_view_cash_report_details: false,
-    can_view_delivery_orders: false,
-    can_manage_manual_orders: false,
-    can_print_receipts: false,
-    can_access_admin: false
+    can_view_operators: false
   });
 
   // Initialize permissions based on operator
@@ -96,17 +76,7 @@ export const usePermissions = (operator?: PDVOperator | null) => {
       can_view_sales_report: true,
       can_view_cash_report: true,
       can_view_attendance: false,
-      can_view_operators: false,
-      can_view_delivery_report: false,
-      can_use_scale: true,
-      can_manage_settings: false,
-      can_view_cash_menu: true,
-      can_view_daily_cash_report: true,
-      can_view_cash_report_details: true,
-      can_view_delivery_orders: false,
-      can_manage_manual_orders: false,
-      can_print_receipts: true,
-      can_access_admin: false,
+      can_view_operators: false
     };
     
     return defaultPermissions[permission] || false;

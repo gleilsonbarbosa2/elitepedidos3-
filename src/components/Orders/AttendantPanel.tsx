@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOrders } from '../../hooks/useOrders';
 import { usePermissions } from '../../hooks/usePermissions';
-import { useAttendance } from '../../hooks/useAttendance';
 import PermissionGuard from '../PermissionGuard';
 import OrderPrintView from './OrderPrintView';
 import OrderCard from './OrderCard';
@@ -18,19 +17,17 @@ import {
   XCircle,
   ArrowLeft,
   Settings,
-  Plus,
-  User,
-  LogOut
+  Plus
 } from 'lucide-react';
 
 interface AttendantPanelProps {
   onBackToAdmin?: () => void;
+  storeSettings?: any;
 }
 
-const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin }) => {
+const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin, storeSettings }) => {
   const { hasPermission } = usePermissions();
   const { orders, loading, updateOrderStatus } = useOrders();
-  const { session, logout } = useAttendance();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [showManualOrderForm, setShowManualOrderForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,21 +36,6 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin }) => {
   const [pendingOrdersCount, setPendingOrdersCount] = useState<number>(0);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
-
-  // Função para obter o nome de exibição do operador
-  const getOperatorDisplayName = (username: string) => {
-    try {
-      const savedUsers = localStorage.getItem('attendance_users');
-      if (savedUsers) {
-        const users = JSON.parse(savedUsers);
-        const user = users.find((u: any) => u.username === username);
-        return user?.operator || username;
-      }
-    } catch (error) {
-      console.error('Erro ao buscar nome do operador:', error);
-    }
-    return username;
-  };
 
   // Carregar configuração de som
   useEffect(() => {
@@ -292,32 +274,6 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin }) => {
               </div>
               
               <div className="flex items-center gap-2">
-                {/* User Session Info */}
-                {session.isAuthenticated && session.user && (
-                  <div className="flex items-center gap-2 bg-purple-100 px-3 py-1.5 rounded-lg">
-                    <User size={16} className="text-purple-600" />
-                    <div className="text-sm">
-                      <span className="font-medium text-purple-800">{session.user.username}</span>
-                      <span className="text-purple-600 ml-1">
-                        ({session.user.role === 'admin' ? 'Admin' : 'Atendente'})
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        // Mostrar confirmação de logout
-                        if (confirm('Deseja realmente sair do sistema de atendimento?')) {
-                          logout();
-                          window.location.href = '/atendimento';
-                        }
-                      }}
-                      className="ml-2 p-1 hover:bg-purple-200 rounded-full transition-colors"
-                      title="Sair"
-                    >
-                      <LogOut size={14} className="text-purple-600" />
-                    </button>
-                  </div>
-                )}
-                
                 <button
                   onClick={toggleSound}
                   className={`p-2 rounded-full transition-colors ${soundEnabled ? 'text-green-600 hover:bg-green-100' : 'text-gray-400 hover:bg-gray-100'}`}
@@ -335,7 +291,6 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin }) => {
                 </button>
                 <button
                   onClick={() => setShowManualOrderForm(true)}
-                  disabled={!hasPermission('can_manage_manual_orders')}
                   className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg transition-colors text-sm"
                 >
                   <Plus size={16} />
@@ -343,7 +298,7 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin }) => {
                 </button>
                 <div className="relative">
                   <Bell size={20} className="text-gray-600" />
-                  {pendingOrdersCount > 0 && (
+                  {orders.filter(o => o.status === 'pending').length > 0 && (
                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
                       {pendingOrdersCount}
                     </span>
@@ -363,118 +318,118 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin }) => {
           </div>
         </header>
 
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          {/* Filters */}
-          <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Search */}
-              <div className="flex-1">
-                <div className="relative">
-                  <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar por nome, telefone ou ID do pedido..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </div>
-
-              {/* Status Filter */}
-              <div className="lg:w-64">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'all')}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  {statusOptions.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label} ({option.count})
-                    </option>
-                  ))}
-                </select>
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Filters */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar por nome, telefone ou ID do pedido..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
               </div>
             </div>
 
-            {/* Status Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mt-4">
-              {statusOptions.map(option => {
-                const Icon = option.icon;
-                const isActive = statusFilter === option.value;
-                
-                return (
-                  <button
-                    key={option.value}
-                    onClick={() => setStatusFilter(option.value)}
-                    className={`p-3 rounded-lg border transition-all ${
-                      isActive
-                        ? 'bg-purple-100 border-purple-300 text-purple-700'
-                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon size={20} className="mx-auto mb-1" />
-                    <div className="text-xs font-medium">{option.label}</div>
-                    <div className="text-lg font-bold">{option.count}</div>
-                  </button>
-                );
-              })}
+            {/* Status Filter */}
+            <div className="lg:w-64">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'all')}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                {statusOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} ({option.count})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* Orders List */}
-          <div className="space-y-4">
-            {filteredOrders.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-                <Package size={48} className="mx-auto text-gray-300 mb-4" />
-                <h3 className="text-lg font-medium text-gray-600 mb-2">
-                  Nenhum pedido encontrado
-                </h3>
-                <p className="text-gray-500">
-                  {searchTerm || statusFilter !== 'all' 
-                    ? 'Tente ajustar os filtros de busca'
-                    : 'Aguardando novos pedidos...'
-                  }
-                </p>
-              </div>
-            ) : (
-              filteredOrders.map(order => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  onStatusChange={updateOrderStatus}
-                  isAttendant={true}
-                />
-              ))
-            )}
+          {/* Status Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mt-4">
+            {statusOptions.map(option => {
+              const Icon = option.icon;
+              const isActive = statusFilter === option.value;
+              
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => setStatusFilter(option.value)}
+                  className={`p-3 rounded-lg border transition-all ${
+                    isActive
+                      ? 'bg-purple-100 border-purple-300 text-purple-700'
+                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon size={20} className="mx-auto mb-1" />
+                  <div className="text-xs font-medium">{option.label}</div>
+                  <div className="text-lg font-bold">{option.count}</div>
+                </button>
+              );
+            })}
           </div>
         </div>
-        
-        {/* Manual Order Form */}
-        {showManualOrderForm && (
-          <ManualOrderForm 
-            onClose={() => setShowManualOrderForm(false)}
-            onOrderCreated={() => {
-              // Refresh orders after creating a new one
-              setTimeout(() => {
-                window.location.reload();
-              }, 1000);
-            }}
-          />
-        )}
-        
-        {/* Print Preview Modal */}
-        {showPrintPreview && newOrder && (
-          <OrderPrintView 
-            order={newOrder} 
-            storeSettings={null}
-            onClose={() => {
-              setShowPrintPreview(false);
-              setNewOrder(null);
-            }} 
-          />
-        )}
+
+        {/* Orders List */}
+        <div className="space-y-4">
+          {filteredOrders.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+              <Package size={48} className="mx-auto text-gray-300 mb-4" />
+              <h3 className="text-lg font-medium text-gray-600 mb-2">
+                Nenhum pedido encontrado
+              </h3>
+              <p className="text-gray-500">
+                {searchTerm || statusFilter !== 'all' 
+                  ? 'Tente ajustar os filtros de busca'
+                  : 'Aguardando novos pedidos...'
+                }
+              </p>
+            </div>
+          ) : (
+            filteredOrders.map(order => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                onStatusChange={updateOrderStatus}
+                isAttendant={true}
+              />
+            ))
+          )}
+        </div>
       </div>
+      
+      {/* Manual Order Form */}
+      {showManualOrderForm && (
+        <ManualOrderForm 
+          onClose={() => setShowManualOrderForm(false)}
+          onOrderCreated={() => {
+            // Refresh orders after creating a new one
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          }}
+        />
+      )}
+      
+      {/* Print Preview Modal */}
+      {showPrintPreview && newOrder && (
+        <OrderPrintView 
+          order={newOrder} 
+          storeSettings={null}
+          onClose={() => {
+            setShowPrintPreview(false);
+            setNewOrder(null);
+          }} 
+        />
+      )}
+    </div>
     </PermissionGuard>
   );
 };

@@ -15,28 +15,15 @@ const AttendanceLogin: React.FC<AttendanceLoginProps> = ({ onLogin }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    console.log('📝 Formulário de login submetido:', { username, password: '***' });
-    
-    if (!username.trim() || !password.trim()) {
-      setError('Preencha todos os campos');
-      return;
-    }
-    
     setLoading(true);
 
     // Simular delay de autenticação
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    console.log('🔄 Chamando função de login...');
     const success = onLogin(username, password);
-    console.log('📊 Resultado do login:', success);
     
     if (!success) {
-      console.log('❌ Definindo erro de credenciais inválidas');
       setError('Credenciais inválidas');
-    } else {
-      console.log('✅ Login bem-sucedido, redirecionando...');
     }
     
     setLoading(false);

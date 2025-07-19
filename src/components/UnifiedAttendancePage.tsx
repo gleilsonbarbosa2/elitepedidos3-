@@ -15,7 +15,6 @@ import AttendantPanel from './Orders/AttendantPanel';
 import PDVSalesScreen from './PDV/PDVSalesScreen';
 import CashRegisterMenu from './PDV/CashRegisterMenu';
 import { usePermissions } from '../hooks/usePermissions';
-import { useAttendance } from '../hooks/useAttendance';
 import { useScale } from '../hooks/useScale';
 import { useOrders } from '../hooks/useOrders';
 import { usePDVCashRegister } from '../hooks/usePDVCashRegister';
@@ -24,12 +23,12 @@ import { PDVOperator } from '../types/pdv';
 
 interface UnifiedAttendancePanelProps {
   operator?: PDVOperator;
-  propAttendanceSession?: any;
   storeSettings?: any;
   scaleHook?: ReturnType<typeof useScale>;
+  onLogout?: () => void;
 }
 
-const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator, propAttendanceSession, storeSettings, scaleHook }) => {
+const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator, storeSettings, scaleHook, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'sales' | 'orders' | 'cash'>('sales');
   const { hasPermission } = usePermissions(operator);
   const { storeSettings: localStoreSettings } = useStoreHours();
@@ -37,24 +36,6 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
   const scale = useScale();
   const { orders } = useOrders();
   const [supabaseConfigured, setSupabaseConfigured] = useState(true);
-  
-  // Função para obter o nome de exibição do operador
-  const getOperatorDisplayName = (username: string) => {
-    try {
-      const savedUsers = localStorage.getItem('attendance_users');
-      if (savedUsers) {
-        const users = JSON.parse(savedUsers);
-        const user = users.find((u: any) => u.username === username);
-        return user?.operator || username;
-      }
-    } catch (error) {
-      console.error('Erro ao buscar nome do operador:', error);
-    }
-    return username;
-  };
-
-  // Get attendance session if available
-  const { session: attendanceSession, logout: attendanceLogout } = useAttendance();
   
   // Calculate pending orders count from the orders data
   const pendingOrdersCount = orders.filter(order => order.status === 'pending').length;
@@ -93,44 +74,25 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
               </div>
             </div>
             
-            {/* User Session Info */}
-            <div className="flex items-center gap-4">
-              {/* Attendance Session */}
-              {attendanceSession.isAuthenticated && attendanceSession.user && (
-                <div className="flex items-center gap-2 bg-purple-100 px-3 py-1.5 rounded-lg">
-                  <User size={16} className="text-purple-600" />
-                  <div className="text-sm">
-                    <span className="font-medium text-purple-800">{getOperatorDisplayName(attendanceSession.user.username)}</span>
-                    <span className="text-purple-600 ml-1">
-                      ({attendanceSession.user.role === 'admin' ? 'Admin' : 'Atendente'})
-                    </span>
-                  </div>
+            {/* User info and logout */}
+            {operator && (
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-lg">
+                  <User size={18} className="text-gray-600" />
+                  <span className="text-sm font-medium text-gray-700">{operator.name}</span>
+                </div>
+                {onLogout && (
                   <button
-                    onClick={() => {
-                      if (confirm('Deseja realmente sair do sistema de atendimento?')) {
-                        attendanceLogout();
-                        window.location.href = '/atendimento';
-                      }
-                    }}
-                    className="ml-2 p-1 hover:bg-purple-200 rounded-full transition-colors"
-                    title="Sair do atendimento"
+                    onClick={onLogout}
+                    className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg transition-colors text-sm"
+                    title="Sair do sistema"
                   >
-                    <LogOut size={14} className="text-purple-600" />
+                    <LogOut size={16} />
+                    Sair
                   </button>
-                </div>
-              )}
-              
-              {/* PDV Operator Session */}
-              {operator && (
-                <div className="flex items-center gap-2 bg-green-100 px-3 py-1.5 rounded-lg">
-                  <User size={16} className="text-green-600" />
-                  <div className="text-sm">
-                    <span className="font-medium text-green-800">{operator.name}</span>
-                    <span className="text-green-600 ml-1">(PDV)</span>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -234,15 +196,6 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
           {activeTab === 'orders' && (isAdmin || hasPermission('can_view_orders')) && <AttendantPanel storeSettings={settings} />}
           {activeTab === 'cash' && (isAdmin || hasPermission('can_view_cash_register')) && <CashRegisterMenu storeSettings={settings} />}
         </div>
-        
-        {/* Show message if no tabs are visible */}
-        {!isAdmin && !hasPermission('can_view_sales') && !hasPermission('can_view_orders') && !hasPermission('can_view_cash_register') && (
-          <div className="text-center py-8">
-            <AlertCircle size={48} className="mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500">Você não tem permissão para acessar nenhuma funcionalidade desta página.</p>
-            <p className="text-gray-400 text-sm mt-2">Entre em contato com o administrador para obter as permissões necessárias.</p>
-          </div>
-        )}
       </div>
     </div>
   );

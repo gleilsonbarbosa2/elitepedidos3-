@@ -26,11 +26,8 @@ const PDVLogin: React.FC<PDVLoginProps> = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      console.log('🔐 Tentando fazer login com:', { code: code.trim(), password: '***' });
-      
       // Check for hardcoded admin credentials for demo purposes
       if (code.toUpperCase() === 'ADMIN' && password === 'elite2024') {
-        console.log('🔑 Login admin detectado');
         const { data, error } = await supabase
           .from('pdv_operators')
           .select('*')
@@ -38,7 +35,6 @@ const PDVLogin: React.FC<PDVLoginProps> = ({ onLogin }) => {
           .single();
         
         if (data) {
-          console.log('✅ Operador admin encontrado no banco');
           // Login successful with hardcoded credentials
           await supabase
             .from('pdv_operators')
@@ -48,7 +44,6 @@ const PDVLogin: React.FC<PDVLoginProps> = ({ onLogin }) => {
           onLogin(data);
           return true;
         } else {
-          console.log('⚠️ Operador admin não encontrado, criando...');
           // Try to create admin user if it doesn't exist
           try {
             const { data: newAdmin, error: createError } = await supabase
@@ -82,7 +77,6 @@ const PDVLogin: React.FC<PDVLoginProps> = ({ onLogin }) => {
             }
             
             if (newAdmin) {
-              console.log('✅ Operador admin criado com sucesso');
               onLogin(newAdmin);
               return true;
             }
@@ -95,7 +89,6 @@ const PDVLogin: React.FC<PDVLoginProps> = ({ onLogin }) => {
         return false;
       }
       
-      console.log('🔍 Buscando operador no banco:', code.trim());
       // Buscar operador pelo código
       const { data, error: fetchError } = await supabase
         .from('pdv_operators')
@@ -105,65 +98,33 @@ const PDVLogin: React.FC<PDVLoginProps> = ({ onLogin }) => {
         .single();
 
       if (fetchError || !data) {
-        console.error('❌ Operador não encontrado:', fetchError);
         setError('Operador não encontrado ou inativo');
         setLoading(false);
         return;
       }
 
-      console.log('✅ Operador encontrado:', data.name);
-      
-      // Verificar senha - primeiro tentar com RPC function
-      try {
-        console.log('🔐 Verificando senha com RPC...');
-        const { data: authData, error: authError } = await supabase.rpc(
-          'verify_operator_password',
-          {
-            operator_code: code.trim(),
-            password_to_check: password
-          }
-        );
+      // Verificar senha
+      const { data: authData, error: authError } = await supabase.rpc(
+        'verify_operator_password',
+        {
+          operator_code: code.trim(),
+          password_to_check: password
+        }
+      );
 
-        if (authError) {
-          console.warn('⚠️ RPC function não disponível, usando verificação simples:', authError);
-          // Fallback: verificação simples para desenvolvimento
-          if (data.password_hash === password || password === 'elite2024') {
-            console.log('✅ Senha verificada com fallback');
-          } else {
-            console.error('❌ Senha incorreta no fallback');
-            setError('Senha incorreta');
-            setLoading(false);
-            return;
-          }
-        } else if (!authData) {
-          console.error('❌ Autenticação falhou via RPC');
-          setError('Senha incorreta');
-          setLoading(false);
-          return;
-        } else {
-          console.log('✅ Senha verificada com RPC');
-        }
-      } catch (rpcError) {
-        console.warn('⚠️ Erro na verificação RPC, usando fallback:', rpcError);
-        // Fallback para desenvolvimento - verificação simples
-        if (data.password_hash === password || password === 'elite2024') {
-          console.log('✅ Senha verificada com fallback simples');
-        } else {
-          console.error('❌ Senha incorreta no fallback simples');
-          setError('Senha incorreta');
-          setLoading(false);
-          return;
-        }
+      // Check if authentication failed
+      if (authError || !authData) {
+        setError('Senha incorreta');
+        setLoading(false);
+        return;
       }
 
-      console.log('🔄 Atualizando último login...');
       // Atualizar último login
       await supabase
         .from('pdv_operators')
         .update({ last_login: new Date().toISOString() })
         .eq('id', data.id);
 
-      console.log('🎉 Login bem-sucedido para:', data.name);
       // Login bem-sucedido
       onLogin(data);
       return true;

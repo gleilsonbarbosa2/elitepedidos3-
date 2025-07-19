@@ -3,45 +3,40 @@ import { useNavigate } from 'react-router-dom';
 import AttendanceLogin from './Orders/AttendanceLogin';
 import UnifiedAttendancePage from './UnifiedAttendancePage';
 import { useAttendance } from '../hooks/useAttendance';
-import { usePermissions } from '../hooks/usePermissions';
-import PermissionGuard from './PermissionGuard';
 
 const AttendancePage: React.FC = () => {
   const navigate = useNavigate();
   const { session, login, logout } = useAttendance();
-  const { hasPermission } = usePermissions();
-  
-  // Check if user has PDV operator session with attendance permission
-  const pdvOperator = localStorage.getItem('pdv_operator');
-  let hasPDVAccess = false;
-  let operator = null;
-  
-  if (pdvOperator) {
-    try {
-      operator = JSON.parse(pdvOperator);
-      hasPDVAccess = operator.permissions?.can_view_attendance === true;
-    } catch (error) {
-      console.error('Error parsing PDV operator:', error);
-    }
-  }
 
-  // Se o atendente está logado OU tem acesso via PDV com permissão, mostrar painel de atendimento
+  // Se o atendente está logado, mostrar painel de atendimento
   if (session.isAuthenticated) {
     return (
-      <UnifiedAttendancePage propAttendanceSession={session} />
-    );
-  }
-  
-  // Se tem operador PDV, verificar permissão
-  if (operator) {
-    return (
-      <PermissionGuard 
-        hasPermission={hasPDVAccess} 
-        showMessage={true}
-        fallbackPath="/"
-      >
-        <UnifiedAttendancePage operator={operator} propAttendanceSession={session} />
-      </PermissionGuard>
+      <UnifiedAttendancePage 
+        operator={session.user ? {
+          id: session.user.id,
+          name: session.user.username,
+          code: session.user.username.toUpperCase(),
+          permissions: {
+            can_discount: true,
+            can_cancel: true,
+            can_manage_products: true,
+            can_view_sales: true,
+            can_view_cash_register: true,
+            can_view_products: true,
+            can_view_orders: true,
+            can_view_reports: true,
+            can_view_sales_report: true,
+            can_view_cash_report: true,
+            can_view_operators: true
+          },
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          password_hash: '',
+          last_login: null
+        } : undefined}
+        onLogout={logout}
+      />
     );
   }
 
