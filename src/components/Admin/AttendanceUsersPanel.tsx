@@ -552,8 +552,13 @@ const AttendanceUsersPanel: React.FC = () => {
               </button>
               <button
                 onClick={handleSave}
-                disabled={saving || !editingUser.username.trim() || !editingUser.name.trim()}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg transition-colors flex items-center gap-2"
+disabled={
+  saving ||
+  !(editingUser.username?.trim?.()) ||
+  !(editingUser.name?.trim?.())
+}
+className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg transition-colors flex items-center gap-2"
+
               >
                 {saving ? (
                   <>
