@@ -478,65 +478,65 @@ const OrderPrintView: React.FC<OrderPrintViewProps> = ({ order, storeSettings, o
 
           {/* Items */}
           <div style={{ borderBottom: '1px dashed black', paddingBottom: '10px', marginBottom: '15px', color: 'black', background: 'white' }}>
-            <p style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>ITENS DO PEDIDO:</p>
+            <p style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>ITENS DO PEDIDO:</p>
             {order.items.map((item, index) => (
               <div key={index} style={{ marginBottom: '10px' }}>
-                <p style={{ fontSize: '12px', fontWeight: 'bold', margin: '2px 0' }}>{item.product_name}</p>
-                {item.selected_size && <p style={{ fontSize: '10px', margin: '2px 0' }}>Tamanho: {item.selected_size}</p>}
+                <p style={{ fontSize: '14px', fontWeight: 'bold', margin: '2px 0' }}>{item.product_name}</p>
+                {item.selected_size && <p style={{ fontSize: '12px', margin: '2px 0' }}>Tamanho: {item.selected_size}</p>}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '10px' }}>{item.quantity}x {formatPrice(item.unit_price)}</span>
-                  <span style={{ fontSize: '10px' }}>{formatPrice(item.total_price)}</span>
+                  <span style={{ fontSize: '12px' }}>{item.quantity}x {formatPrice(item.unit_price)}</span>
+                  <span style={{ fontSize: '12px' }}>{formatPrice(item.total_price)}</span>
                 </div>
                 
                 {item.complements && item.complements.length > 0 && (
                   <div style={{ marginLeft: '8px', marginTop: '5px' }}>
-                    <p style={{ fontSize: '10px' }}>Complementos:</p>
+                    <p style={{ fontSize: '12px' }}>Complementos:</p>
                     {item.complements.map((comp, idx) => (
-                      <p key={idx} style={{ fontSize: '10px', marginLeft: '8px' }}>• {comp.name}{comp.price > 0 && ` (+${formatPrice(comp.price)})`}</p>
+                      <p key={idx} style={{ fontSize: '12px', marginLeft: '8px' }}>• {comp.name}{comp.price > 0 && ` (+${formatPrice(comp.price)})`}</p>
                     ))}
                   </div>
                 )}
                 
-                {item.observations && <p style={{ fontSize: '10px', marginLeft: '8px', marginTop: '5px' }}>Obs: {item.observations}</p>}
+                {item.observations && <p style={{ fontSize: '12px', marginLeft: '8px', marginTop: '5px' }}>Obs: {item.observations}</p>}
               </div>
             ))}
           </div>
 
           {/* Summary */}
           <div style={{ borderBottom: '1px dashed black', paddingBottom: '10px', marginBottom: '15px', color: 'black', background: 'white' }}>
-            <p style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>RESUMO:</p>
+            <p style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>RESUMO:</p>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '10px' }}>Subtotal:</span>
-              <span style={{ fontSize: '10px' }}>{formatPrice(order.total_price - (order.delivery_fee || 0))}</span>
+              <span style={{ fontSize: '12px' }}>Subtotal:</span>
+              <span style={{ fontSize: '12px' }}>{formatPrice(order.total_price - (order.delivery_fee || 0))}</span>
             </div>
             {order.delivery_fee && order.delivery_fee > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '10px' }}>Taxa de Entrega:</span>
-                <span style={{ fontSize: '10px' }}>{formatPrice(order.delivery_fee)}</span>
+                <span style={{ fontSize: '12px' }}>Taxa de Entrega:</span>
+                <span style={{ fontSize: '12px' }}>{formatPrice(order.delivery_fee)}</span>
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', borderTop: '1px solid black', paddingTop: '5px', marginTop: '5px' }}>
-              <span style={{ fontSize: '12px' }}>TOTAL:</span>
-              <span style={{ fontSize: '12px' }}>{formatPrice(order.total_price)}</span>
+              <span style={{ fontSize: '14px' }}>TOTAL:</span>
+              <span style={{ fontSize: '14px' }}>{formatPrice(order.total_price)}</span>
             </div>
           </div>
 
           {/* Payment */}
           <div style={{ borderBottom: '1px dashed black', paddingBottom: '10px', marginBottom: '15px', color: 'black', background: 'white' }}>
-            <p style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>PAGAMENTO:</p>
-            <p style={{ fontSize: '10px', margin: '2px 0' }}>Forma: {getPaymentMethodLabel(order.payment_method)}</p>
-            {order.change_for && <p style={{ fontSize: '10px', margin: '2px 0' }}>Troco para: {formatPrice(order.change_for)}</p>}
+            <p style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>PAGAMENTO:</p>
+            <p style={{ fontSize: '12px', margin: '2px 0' }}>Forma: {getPaymentMethodLabel(order.payment_method)}</p>
+            {order.change_for && <p style={{ fontSize: '12px', margin: '2px 0' }}>Troco para: {formatPrice(order.change_for)}</p>}
             {order.payment_method === 'pix' && (
               <div style={{ marginTop: '5px' }}>
-                <p style={{ fontSize: '10px', margin: '2px 0' }}>⚠️ IMPORTANTE:</p>
-                <p style={{ fontSize: '10px', margin: '2px 0' }}>Envie o comprovante do PIX</p>
-                <p style={{ fontSize: '10px', margin: '2px 0' }}>para confirmar o pedido!</p>
+                <p style={{ fontSize: '12px', margin: '2px 0' }}>⚠️ IMPORTANTE:</p>
+                <p style={{ fontSize: '12px', margin: '2px 0' }}>Envie o comprovante do PIX</p>
+                <p style={{ fontSize: '12px', margin: '2px 0' }}>para confirmar o pedido!</p>
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div style={{ textAlign: 'center', fontSize: '10px', borderTop: '1px solid black', paddingTop: '10px', color: 'black', background: 'white' }}>
+          <div style={{ textAlign: 'center', fontSize: '12px', borderTop: '1px solid black', paddingTop: '10px', color: 'black', background: 'white' }}>
             <p style={{ fontWeight: 'bold', marginBottom: '10px' }}>Obrigado pela preferência!</p>
             <p style={{ margin: '2px 0' }}>Elite Açaí - O melhor açaí da cidade!</p>
             <p style={{ margin: '2px 0' }}>@eliteacai</p>
