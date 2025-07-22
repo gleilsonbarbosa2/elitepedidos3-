@@ -41,7 +41,7 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook, operator, st
   const [printerSettings, setPrinterSettings] = useState({
     paper_width: '80mm',
     page_size: 300,
-    font_size: 2,
+    font_size: 14,
     delivery_font_size: 14,
     scale: 1,
     margin_left: 0,
@@ -562,7 +562,7 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook, operator, st
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)] print:hidden">
       {/* Produtos */}
       <div className="lg:col-span-2 bg-white rounded-xl shadow-lg overflow-hidden flex flex-col">
         <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
@@ -1044,13 +1044,32 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook, operator, st
               <div className="text-center mb-4">
                 <p className="font-bold">ELITE AÇAÍ</p>
                 <p>CNPJ: {storeSettings?.cnpj || '00.000.000/0001-00'}</p>
-                <p>Rua das Frutas, 123 - Centro</p>
+                <p>Rua Um, 1614-C, Residencial 1 - Cágado</p>
                 <p>Tel: (85) 98904-1010</p>
                 <p>--------------------------</p>
                 <p>CUPOM NÃO FISCAL</p>
                 <p>--------------------------</p>
               </div>
               
+              {/* QR Code PIX - apenas para pagamentos PIX */}
+              {paymentType === 'pix' && (
+                <div className="text-center mb-4 pb-2 border-b border-dashed border-gray-400">
+                  <div className="font-bold mb-2">QR CODE PIX</div>
+                  <img 
+                    src="/WhatsApp Image 2025-07-22 at 14.53.40.jpeg" 
+                    alt="QR Code PIX" 
+                    className="w-24 h-24 mx-auto mb-2"
+                    style={{ width: '60mm', height: '60mm', maxWidth: '100%' }}
+                  />
+                  <div className="space-y-1">
+                    <div>Chave PIX: 85989041010</div>
+                    <div>Nome: Grupo Elite</div>
+                    <div className="font-bold">Valor: {formatPrice(getTotal())}</div>
+                  </div>
+                  <p>--------------------------</p>
+                </div>
+              )}
+
               <div className="mb-4">
                 <p>Data: {new Date().toLocaleDateString()}</p>
                 <p>Hora: {new Date().toLocaleTimeString()}</p>

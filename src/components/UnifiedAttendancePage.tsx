@@ -61,7 +61,7 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b print:hidden">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -99,7 +99,7 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
 
       {/* Supabase Configuration Warning */}
       {!supabaseConfigured && (
-        <div className="max-w-7xl mx-auto px-4 mt-6">
+        <div className="max-w-7xl mx-auto px-4 mt-6 print:hidden">
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
             <div className="flex items-center gap-3">
               <div className="bg-yellow-100 rounded-full p-2">
@@ -119,7 +119,7 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
 
       {/* Cash Register Warning */}
       {supabaseConfigured && !isCashRegisterOpen && (activeTab === 'sales' || activeTab === 'orders') && (
-        <div className="max-w-7xl mx-auto px-4 mt-6">
+        <div className="max-w-7xl mx-auto px-4 mt-6 print:hidden">
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
             <div className="flex items-center gap-3">
               <div className="bg-yellow-100 rounded-full p-2">
@@ -139,7 +139,7 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Navigation Tabs */}
-        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6 print:hidden">
           <div className="flex flex-wrap gap-4">
             {(isAdmin || hasPermission('can_view_sales')) && (
               <button
@@ -191,7 +191,7 @@ const UnifiedAttendancePage: React.FC<UnifiedAttendancePanelProps> = ({ operator
         </div>
 
         {/* Content */}
-        <div className="transition-all duration-300">
+        <div className="transition-all duration-300 print:hidden">
           {activeTab === 'sales' && (isAdmin || hasPermission('can_view_sales')) && <PDVSalesScreen scaleHook={scaleHook || scale} storeSettings={settings} operator={operator} />}
           {activeTab === 'orders' && (isAdmin || hasPermission('can_view_orders')) && <AttendantPanel storeSettings={settings} />}
           {activeTab === 'cash' && (isAdmin || hasPermission('can_view_cash_register')) && <CashRegisterMenu storeSettings={settings} />}

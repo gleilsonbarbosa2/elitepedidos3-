@@ -211,6 +211,29 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin, storeSet
     }
   };
 
+  // Função para gerar mensagem de resumo de pedidos pendentes
+  const generatePendingOrdersMessage = (pendingOrders: any[]) => {
+    let message = `🔔 *RESUMO DE PEDIDOS PENDENTES - ELITE AÇAÍ*\n\n`;
+    message += `📊 *${pendingOrders.length} pedido(s) aguardando confirmação*\n\n`;
+    
+    pendingOrders.forEach((order, index) => {
+      message += `*${index + 1}. Pedido #${order.id.slice(-8)}*\n`;
+      message += `👤 Cliente: ${order.customer_name}\n`;
+      message += `📱 Telefone: ${order.customer_phone}\n`;
+      message += `📍 Endereço: ${order.customer_address}, ${order.customer_neighborhood}\n`;
+      message += `💰 Total: ${formatPrice(order.total_price)}\n`;
+      message += `💳 Pagamento: ${getPaymentMethodLabel(order.payment_method)}\n`;
+      message += `🕐 Recebido: ${formatDate(order.created_at)}\n\n`;
+    });
+    
+    const totalValue = pendingOrders.reduce((sum, order) => sum + order.total_price, 0);
+    message += `💵 *Valor Total dos Pedidos: ${formatPrice(totalValue)}*\n\n`;
+    message += `⚠️ *Ação Necessária:* Confirmar pedidos para iniciar preparo\n\n`;
+    message += `📱 Elite Açaí - Sistema de Atendimento\n`;
+    message += `🕐 Enviado em: ${new Date().toLocaleString('pt-BR')}`;
+    
+    return encodeURIComponent(message);
+  };
   const filteredOrders = orders.filter(order => {
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     const matchesSearch = searchTerm === '' || 
@@ -251,7 +274,7 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin, storeSet
     <PermissionGuard hasPermission={hasPermission('can_view_orders')} showMessage={true}>
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b">
+        <header className="bg-white shadow-sm border-b print:hidden">
           <div className="max-w-7xl mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -320,7 +343,7 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin, storeSet
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6 print:hidden">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search */}
             <div className="flex-1">
@@ -353,7 +376,7 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin, storeSet
           </div>
 
           {/* Status Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mt-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mt-4 print:hidden">
             {statusOptions.map(option => {
               const Icon = option.icon;
               const isActive = statusFilter === option.value;
@@ -378,7 +401,7 @@ const AttendantPanel: React.FC<AttendantPanelProps> = ({ onBackToAdmin, storeSet
         </div>
 
         {/* Orders List */}
-        <div className="space-y-4">
+        <div className="space-y-4 print:hidden">
           {filteredOrders.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm p-12 text-center">
               <Package size={48} className="mx-auto text-gray-300 mb-4" />

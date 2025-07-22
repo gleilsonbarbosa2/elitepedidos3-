@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, ShoppingCart, MessageCircle, Trash2, MapPin, ArrowLeft, Gift, ChevronRight, CreditCard, Banknote, QrCode } from 'lucide-react';
+import { X, Plus, Minus, ShoppingCart, MessageCircle, Trash2, MapPin, ArrowLeft, Gift, ChevronRight, CreditCard, Banknote, QrCode, AlertCircle } from 'lucide-react';
 import { CartItem } from '../../types/product';
 import { DeliveryInfo } from '../../types/delivery';
 import { Customer, CustomerBalance } from '../../types/cashback';
@@ -678,6 +678,17 @@ const Cart: React.FC<CartProps> = ({
                   </h4>
                   
                   <div className="space-y-4">
+                    <div className="bg-white rounded-xl p-4 border border-blue-300 shadow-sm text-center">
+                      <div className="mb-3">
+                        <p className="text-sm font-medium text-blue-700 mb-2">QR Code PIX:</p>
+                        <img 
+                          src="/WhatsApp Image 2025-07-22 at 14.53.40.jpeg" 
+                          alt="QR Code PIX" 
+                          className="w-32 h-32 mx-auto border border-gray-200 rounded-lg"
+                        />
+                      </div>
+                    </div>
+                    
                     <div className="bg-white rounded-xl p-4 border border-blue-300 shadow-sm">
                       <div className="grid grid-cols-1 gap-2">
                         <div>

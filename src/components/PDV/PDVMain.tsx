@@ -3,6 +3,7 @@ import { Calculator, Package, BarChart3, Settings, Users, ArrowLeft, DollarSign,
 import { supabase } from '../../lib/supabase';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useScale } from '../../hooks/useScale';
+import { initializePrinterSettings } from '../../utils/printerConfig';
 import PDVSalesScreen from './PDVSalesScreen';
 import UnifiedAttendancePage from '../UnifiedAttendancePage';
 import PDVProductsManager from './PDVProductsManager';
@@ -100,6 +101,11 @@ const PDVMain: React.FC<PDVMainProps> = ({ onBack, operator }) => {
   
   // Initialize scale hook at the PDVMain level
   const scaleHook = useScale();
+  
+  // Initialize printer settings on component mount
+  useEffect(() => {
+    initializePrinterSettings();
+  }, []);
   
   // Check for active screen in localStorage (for navigation between components)
   useEffect(() => {

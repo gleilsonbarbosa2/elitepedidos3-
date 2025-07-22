@@ -18,7 +18,7 @@ const CashRegisterPrintView: React.FC<CashRegisterPrintViewProps> = ({
   const [printerSettings, setPrinterSettings] = useState({
     paper_width: '80mm',
     page_size: 300,
-    font_size: 2,
+    font_size: 14,
     delivery_font_size: 14,
     scale: 1,
     margin_left: 0,
@@ -68,200 +68,125 @@ const CashRegisterPrintView: React.FC<CashRegisterPrintViewProps> = ({
     window.print();
   };
 
-  // Aplicar configurações de impressora ao estilo
   const printerStyle = `
     @media print {
       @page {
-        size: ${printerSettings.paper_width} auto;
-        margin: 0;
-        padding: 0;
+        size: A4 portrait;
+        margin: 0 !important;
+        padding: 0 !important;
       }
-      
-      body {
-        margin: 0;
-        padding: 0;
-        background: white;
-        font-family: 'Courier New', monospace;
-        font-size: ${printerSettings.font_size}px;
-        line-height: 1.2;
-        color: black;
+
+      html, body {
+        width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 14px !important;
+        line-height: 1.3 !important;
+        overflow: visible !important;
+        background: white !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        min-height: 100vh !important;
+        zoom: 1 !important;
+        transform: none !important;
       }
-      
-      .print\\:hidden {
-        display: none !important;
-      }
-      
-      .thermal-receipt {
-        width: ${printerSettings.paper_width === 'A4' ? '210mm' : printerSettings.paper_width};
-        max-width: ${printerSettings.paper_width === 'A4' ? '210mm' : printerSettings.paper_width};
-        margin: 0;
-        padding: ${printerSettings.margin_top}mm ${printerSettings.margin_left}mm ${printerSettings.margin_bottom}mm;
-        background: white;
-        color: black;
-        font-family: 'Courier New', monospace;
-        font-size: ${printerSettings.font_size}px;
-        line-height: 1.3;
-        overflow: visible;
-        max-height: none;
-        transform: scale(${printerSettings.scale});
-        transform-origin: top left;
-      }
-      
-      .fixed {
+
+      #print-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+        min-height: 100vh !important;
+        display: block !important;
         position: static !important;
       }
-      
-      .bg-black\\/50 {
-        background: transparent !important;
+
+      * {
+        color: black !important;
+        box-sizing: border-box !important;
+        background: white !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        max-width: none !important;
+        max-height: none !important;
+      }
+
+      .print\\:hidden, button, .no-print, .fixed {
+        display: none !important;
+      }
+
+      .thermal-receipt {
+        padding: 2mm !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        border: none !important;
+        overflow: visible !important;
+        page-break-inside: auto !important;
+      }
+
+      .thermal-receipt .mb-1 { margin-bottom: 1mm !important; }
+      .thermal-receipt .mb-2 { margin-bottom: 2mm !important; }
+      .thermal-receipt .mb-3 { margin-bottom: 3mm !important; }
+
+      .thermal-receipt .pb-2 { padding-bottom: 2mm !important; }
+      .thermal-receipt .pt-2 { padding-top: 2mm !important; }
+
+      .thermal-receipt .text-xs { font-size: 12px !important; }
+      .thermal-receipt .text-sm { font-size: 13px !important; }
+
+      .thermal-receipt .space-y-1 > * + * { margin-top: 1mm !important; }
+
+      .thermal-receipt .border-b { border-bottom: 1px solid black !important; }
+      .thermal-receipt .border-t { border-top: 1px solid black !important; }
+      .thermal-receipt .border-dashed { border-style: dashed !important; }
+
+      img {
+        max-width: 100% !important;
+        height: auto !important;
+        page-break-inside: avoid !important;
+      }
+
+      /* Ensure content is visible */
+      .bg-white {
+        background: white !important;
       }
       
-      .rounded-lg {
+      .rounded-lg, .rounded-xl {
         border-radius: 0 !important;
       }
       
-      .max-w-sm {
-        max-width: none !important;
+      .shadow-sm, .shadow-md, .shadow-lg {
+        box-shadow: none !important;
       }
       
-      .w-full {
-        width: ${printerSettings.paper_width === 'A4' ? '210mm' : printerSettings.paper_width} !important;
+      /* Force visibility of all content */
+      .thermal-receipt, .thermal-receipt * {
+        visibility: visible !important;
+        display: block !important;
       }
       
-      .max-h-\\[90vh\\] {
-        max-height: none !important;
-      }
-      
-      .overflow-hidden {
-        overflow: visible !important;
-      }
-      
-      /* Força cores para impressão térmica */
-      * {
-        color: black !important;
-        background: white !important;
-        border-color: black !important;
-      }
-      
-      .bg-gray-100 {
-        background: #f0f0f0 !important;
-      }
-      
-      .border-dashed {
-        border-style: dashed !important;
-      }
-      
-      .border-dotted {
-        border-style: dotted !important;
-      }
-      
-      /* Quebras de página */
-      .page-break {
-        page-break-before: always;
-      }
-      
-      .no-break {
-        page-break-inside: avoid;
-      }
-      
-      /* Otimizações para impressão térmica */
-      .thermal-receipt h1 {
-        font-size: ${printerSettings.font_size * 7}px !important;
-        font-weight: bold !important;
-        margin: 0 !important;
-      }
-      
-      .thermal-receipt .text-xs {
-        font-size: ${printerSettings.font_size * 5}px !important;
-      }
-      
-      .thermal-receipt .text-lg {
-        font-size: ${printerSettings.font_size * 6.5}px !important;
-      }
-      
-      .thermal-receipt .font-bold {
-        font-weight: bold !important;
-      }
-      
-      .thermal-receipt .font-medium {
-        font-weight: 600 !important;
-      }
-      
-      /* Espaçamento otimizado */
-      .thermal-receipt .mb-1 {
-        margin-bottom: 1mm !important;
-      }
-      
-      .thermal-receipt .mb-2 {
-        margin-bottom: 2mm !important;
-      }
-      
-      .thermal-receipt .mb-3 {
-        margin-bottom: 3mm !important;
-      }
-      
-      .thermal-receipt .pb-2 {
-        padding-bottom: 2mm !important;
-      }
-      
-      .thermal-receipt .pt-2 {
-        padding-top: 2mm !important;
-      }
-      
-      .thermal-receipt .p-1 {
-        padding: 1mm !important;
-      }
-      
-      .thermal-receipt .p-2 {
-        padding: 2mm !important;
-      }
-      
-      /* Bordas para impressão térmica */
-      .thermal-receipt .border-b {
-        border-bottom: 1px solid black !important;
-      }
-      
-      .thermal-receipt .border-t {
-        border-top: 1px solid black !important;
-      }
-      
-      .thermal-receipt .border-dashed {
-        border-style: dashed !important;
-      }
-      
-      .thermal-receipt .border-dotted {
-        border-style: dotted !important;
-      }
-      
-      /* Flexbox para alinhamento */
       .thermal-receipt .flex {
         display: flex !important;
-      }
-      
-      .thermal-receipt .justify-between {
-        justify-content: space-between !important;
       }
       
       .thermal-receipt .text-center {
         text-align: center !important;
       }
-      
-      .thermal-receipt .break-all {
-        word-break: break-all !important;
-      }
     }
-    
-    /* Estilos para visualização na tela */
+
     .thermal-receipt {
-      font-family: 'Courier New', monospace;
-      max-width: 300px;
+      font-family: 'Courier New', monospace !important;
       background: white;
-      border: 1px solid #ddd;
     }
   `;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-sm w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print:static print:bg-white print:p-0">
+      <div className="bg-white rounded-lg max-w-sm w-full max-h-[90vh] overflow-hidden print:max-w-full print:w-full print:max-h-none print:overflow-visible print:rounded-none">
         {/* Controles de impressão - não aparecem na impressão */}
         <div className="p-4 border-b border-gray-200 print:hidden">
           <div className="flex items-center justify-between">

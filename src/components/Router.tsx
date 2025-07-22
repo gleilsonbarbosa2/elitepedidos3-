@@ -12,6 +12,9 @@ import PDVLogin from './PDV/PDVLogin';
 import PDVMain from './PDV/PDVMain';
 import { PDVOperator } from '../types/pdv';
 import NotFoundPage from './NotFoundPage';
+import DeliveryLogin from './DeliveryDriver/DeliveryLogin';
+import DeliveryOrdersPage from './DeliveryDriver/DeliveryOrdersPage';
+import ProtectedRoute from './DeliveryDriver/ProtectedRoute';
 
 const Router: React.FC = () => {
   // Solicitar permissão para notificações ao iniciar o app
@@ -65,6 +68,12 @@ const Router: React.FC = () => {
         <Route path="/acesso-negado" element={<AccessDeniedPage />} />
         <Route path="/pdv" element={loggedInOperator ? <PDVMain onBack={handlePDVLogout} operator={loggedInOperator} /> : <PDVLogin onLogin={handlePDVLogin} />} />
         <Route path="/pdv/app" element={loggedInOperator ? <PDVMain onBack={handlePDVLogout} operator={loggedInOperator} /> : <PDVLogin onLogin={handlePDVLogin} />} />
+        <Route path="/login" element={<DeliveryLogin />} />
+        <Route path="/entregas" element={
+          <ProtectedRoute>
+            <DeliveryOrdersPage />
+          </ProtectedRoute>
+        } />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
