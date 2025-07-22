@@ -40,7 +40,7 @@ export function useWeightFromScale() {
         const dif = now - tempo;
 
         if (dif < 15000) {
-          const peso = pesagem.peso;
+          const peso = parseFloat(pesagem.peso);
 
           // Atualizar cache
           lastWeightCache = {
