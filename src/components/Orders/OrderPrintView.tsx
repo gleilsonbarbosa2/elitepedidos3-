@@ -99,7 +99,7 @@ const OrderPrintView: React.FC<OrderPrintViewProps> = ({ order, storeSettings, o
           <div class="bold mb-2">QR CODE PIX</div>
           <img src="/WhatsApp Image 2025-07-22 at 14.53.40.jpeg" alt="QR Code PIX" style="width: 60mm; height: 60mm;">
           <div class="small">Chave PIX: 85989041010</div>
-          <div class="small">Nome: Grupo Elite</div>
+          <div class="small">Nome: Amanda Suyelen da Costa Pereira</div>
           <div class="bold">Valor: ${formatPrice(order.total_price)}</div>
         </div>
         ` : ''}
@@ -351,7 +351,7 @@ const OrderPrintView: React.FC<OrderPrintViewProps> = ({ order, storeSettings, o
                   />
                   <div className="space-y-1">
                     <div>Chave PIX: 85989041010</div>
-                    <div>Nome: Grupo Elite</div>
+                    <div>Nome: Amanda Suyelen da Costa Pereira</div>
                     <div className="font-bold">Valor: {formatPrice(order.total_price)}</div>
                   </div>
                   <p>--------------------------</p>

@@ -244,7 +244,7 @@ const DeliveryOrdersPage: React.FC = () => {
     message += `https://www.google.com/maps/search/?api=1&query=${encodedAddress}\n\n`;
 
     message += `🕐 Pedido feito em: ${new Date(order.created_at).toLocaleString('pt-BR')}\n\n`;
-    message += `Elite Açaí - Entrega confirmada! 🍧`;
+    message += `Amanda Suyelen da Costa Pereira - Elite Açaí - Entrega confirmada! 🍧`;
 
     const phoneNumber = order.customer_phone.replace(/\D/g, '');
     const phoneWithCountryCode = phoneNumber.startsWith('55') ? phoneNumber : `55${phoneNumber}`;

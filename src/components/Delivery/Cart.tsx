@@ -206,7 +206,7 @@ const Cart: React.FC<CartProps> = ({
         message += `PIX\n`;
         message += `📱 *DADOS PIX:*\n`;
         message += `Chave: 85989041010\n`;
-        message += `Nome: Grupo Elite\n`;
+        message += `Nome: Amanda Suyelen da Costa Pereira\n`;
         message += `Valor: ${formatPrice(getTotalWithCashback())}\n\n`;
         message += `⚠️ *IMPORTANTE:* Envie o comprovante do PIX para confirmar o pedido!`;
         break;
@@ -715,7 +715,7 @@ const Cart: React.FC<CartProps> = ({
                         </div>
                         <div>
                           <p className="text-sm font-medium text-blue-700 mb-1">Nome:</p>
-                          <p className="font-semibold text-blue-900">Grupo Elite</p>
+                          <p className="font-semibold text-blue-900">Amanda Suyelen da Costa Pereira</p>
                         </div>
                         <div>
                           <p className="text-sm font-medium text-blue-700 mb-1">Valor:</p>
