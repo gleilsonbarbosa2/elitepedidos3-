@@ -31,19 +31,7 @@ const AttendanceUsersPanel: React.FC = () => {
     const savedUsers = localStorage.getItem('attendance_users');
     if (savedUsers) {
       try {
-        const parsedUsers = JSON.parse(savedUsers);
-        // Ensure all users have proper permissions structure
-        const usersWithPermissions = parsedUsers.map(user => ({
-          ...user,
-          permissions: user.permissions || {
-            can_view_orders: true,
-            can_update_status: true,
-            can_chat: true,
-            can_create_manual_orders: false,
-            can_print_orders: true
-          }
-        }));
-        setUsers(usersWithPermissions);
+        setUsers(JSON.parse(savedUsers));
       } catch (error) {
         console.error('Erro ao carregar usuários:', error);
       }
@@ -253,22 +241,22 @@ const AttendanceUsersPanel: React.FC = () => {
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex flex-wrap gap-1">
-                      {user.permissions?.can_view_orders && (
+                      {user.permissions.can_view_orders && (
                         <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                           Ver Pedidos
                         </span>
                       )}
-                      {user.permissions?.can_update_status && (
+                      {user.permissions.can_update_status && (
                         <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                           Atualizar Status
                         </span>
                       )}
-                      {user.permissions?.can_chat && (
+                      {user.permissions.can_chat && (
                         <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
                           Chat
                         </span>
                       )}
-                      {user.permissions?.can_create_manual_orders && (
+                      {user.permissions.can_create_manual_orders && (
                         <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
                           Pedidos Manuais
                         </span>
@@ -433,11 +421,11 @@ const AttendanceUsersPanel: React.FC = () => {
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={editingUser.permissions?.can_view_orders || false}
+                      checked={editingUser.permissions.can_view_orders}
                       onChange={(e) => setEditingUser({
                         ...editingUser,
                         permissions: {
-                          ...editingUser.permissions || {},
+                          ...editingUser.permissions,
                           can_view_orders: e.target.checked
                         }
                       })}
@@ -451,11 +439,11 @@ const AttendanceUsersPanel: React.FC = () => {
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={editingUser.permissions?.can_update_status || false}
+                      checked={editingUser.permissions.can_update_status}
                       onChange={(e) => setEditingUser({
                         ...editingUser,
                         permissions: {
-                          ...editingUser.permissions || {},
+                          ...editingUser.permissions,
                           can_update_status: e.target.checked
                         }
                       })}
@@ -469,11 +457,11 @@ const AttendanceUsersPanel: React.FC = () => {
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={editingUser.permissions?.can_chat || false}
+                      checked={editingUser.permissions.can_chat}
                       onChange={(e) => setEditingUser({
                         ...editingUser,
                         permissions: {
-                          ...editingUser.permissions || {},
+                          ...editingUser.permissions,
                           can_chat: e.target.checked
                         }
                       })}
@@ -487,11 +475,11 @@ const AttendanceUsersPanel: React.FC = () => {
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={editingUser.permissions?.can_create_manual_orders || false}
+                      checked={editingUser.permissions.can_create_manual_orders}
                       onChange={(e) => setEditingUser({
                         ...editingUser,
                         permissions: {
-                          ...editingUser.permissions || {},
+                          ...editingUser.permissions,
                           can_create_manual_orders: e.target.checked
                         }
                       })}
@@ -505,11 +493,11 @@ const AttendanceUsersPanel: React.FC = () => {
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={editingUser.permissions?.can_print_orders || false}
+                      checked={editingUser.permissions.can_print_orders}
                       onChange={(e) => setEditingUser({
                         ...editingUser,
                         permissions: {
-                          ...editingUser.permissions || {},
+                          ...editingUser.permissions,
                           can_print_orders: e.target.checked
                         }
                       })}
@@ -552,13 +540,8 @@ const AttendanceUsersPanel: React.FC = () => {
               </button>
               <button
                 onClick={handleSave}
-disabled={
-  saving ||
-  !(editingUser.username?.trim?.()) ||
-  !(editingUser.name?.trim?.())
-}
-className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg transition-colors flex items-center gap-2"
-
+                disabled={saving || !editingUser.username.trim() || !editingUser.name.trim()}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg transition-colors flex items-center gap-2"
               >
                 {saving ? (
                   <>
