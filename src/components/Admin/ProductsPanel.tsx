@@ -56,12 +56,36 @@ const ProductsPanel: React.FC = () => {
       name: '',
       category: 'acai',
       price: 0,
+      originalPrice: undefined,
       description: '',
       image: 'https://images.pexels.com/photos/1092730/pexels-photo-1092730.jpeg?auto=compress&cs=tinysrgb&w=400',
-        imageUrl: imageUrl.substring(0, 50) + '...',
+      sizes: undefined,
+      complementGroups: undefined,
+      availability: undefined,
+      isActive: true,
+      scheduledDays: undefined,
+      is_weighable: false,
+      pricePerGram: undefined
     });
     setIsCreating(true);
   };
+
+  // Load product image when editing
+  React.useEffect(() => {
+    if (editingProduct && editingProduct.id) {
+      const loadProductImage = async () => {
+        try {
+          const savedImage = await getProductImage(editingProduct.id);
+          if (savedImage && !editingProduct.image.includes(savedImage)) {
+            setEditingProduct(prev => prev ? { ...prev, image: savedImage } : null);
+          }
+        } catch (error) {
+          console.warn('Erro ao carregar imagem do produto:', error);
+        }
+      };
+      loadProductImage();
+    }
+  }, [editingProduct?.id, getProductImage]);
 
   const handleSave = async () => {
     if (!editingProduct) return;
@@ -525,6 +549,371 @@ const ProductsPanel: React.FC = () => {
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="0.00"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Para produtos em promoção (preço riscado)
+                  </p>
+                </div>
+              </div>
+
+              {/* Weighable Product */}
+              <div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editingProduct.is_weighable || false}
+                    onChange={(e) => setEditingProduct({
+                      ...editingProduct,
+                      is_weighable: e.target.checked,
+                      pricePerGram: e.target.checked ? (editingProduct.pricePerGram || 0.045) : undefined
+                    })}
+                    className="w-4 h-4 text-purple-600"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Produto pesável (vendido por peso)
+                  </span>
+                </label>
+              </div>
+
+              {/* Price per gram for weighable products */}
+              {editingProduct.is_weighable && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Preço por grama (R$) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    value={editingProduct.pricePerGram || ''}
+                    onChange={(e) => setEditingProduct({
+                      ...editingProduct,
+                      pricePerGram: parseFloat(e.target.value) || 0
+                    })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="0.045"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Preço por kg: {editingProduct.pricePerGram ? formatPrice((editingProduct.pricePerGram || 0) * 1000) : 'R$ 0,00'}
+                  </p>
+                </div>
+              )}
+
+              {/* Product Sizes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tamanhos do Produto
+                </label>
+                <div className="space-y-3">
+                  {editingProduct.sizes && editingProduct.sizes.length > 0 ? (
+                    editingProduct.sizes.map((size, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-3 border">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Nome</label>
+                            <input
+                              type="text"
+                              value={size.name}
+                              onChange={(e) => {
+                                const newSizes = [...(editingProduct.sizes || [])];
+                                newSizes[index] = { ...size, name: e.target.value };
+                                setEditingProduct({ ...editingProduct, sizes: newSizes });
+                              }}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                              placeholder="Ex: Pequeno"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Preço (R$)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={size.price}
+                              onChange={(e) => {
+                                const newSizes = [...(editingProduct.sizes || [])];
+                                newSizes[index] = { ...size, price: parseFloat(e.target.value) || 0 };
+                                setEditingProduct({ ...editingProduct, sizes: newSizes });
+                              }}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Volume (ml)</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                value={size.ml || ''}
+                                onChange={(e) => {
+                                  const newSizes = [...(editingProduct.sizes || [])];
+                                  newSizes[index] = { ...size, ml: parseInt(e.target.value) || undefined };
+                                  setEditingProduct({ ...editingProduct, sizes: newSizes });
+                                }}
+                                className="flex-1 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                                placeholder="500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newSizes = editingProduct.sizes?.filter((_, i) => i !== index) || [];
+                                  setEditingProduct({ ...editingProduct, sizes: newSizes });
+                                }}
+                                className="p-2 text-red-600 hover:bg-red-100 rounded transition-colors"
+                                title="Remover tamanho"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-2">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Descrição</label>
+                          <input
+                            type="text"
+                            value={size.description || ''}
+                            onChange={(e) => {
+                              const newSizes = [...(editingProduct.sizes || [])];
+                              newSizes[index] = { ...size, description: e.target.value };
+                              setEditingProduct({ ...editingProduct, sizes: newSizes });
+                            }}
+                            className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                            placeholder="Descrição opcional do tamanho"
+                          />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <p className="text-sm text-gray-500 mb-2">Nenhum tamanho configurado</p>
+                    </div>
+                  )}
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newSize = {
+                        id: `size-${Date.now()}`,
+                        name: '',
+                        price: 0,
+                        ml: undefined,
+                        description: ''
+                      };
+                      const newSizes = [...(editingProduct.sizes || []), newSize];
+                      setEditingProduct({ ...editingProduct, sizes: newSizes });
+                    }}
+                    className="w-full bg-blue-100 hover:bg-blue-200 text-blue-700 py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+                  >
+                    <Plus size={16} />
+                    Adicionar Tamanho
+                  </button>
+                </div>
+              </div>
+
+              {/* Complement Groups */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Grupos de Complementos
+                </label>
+                <div className="space-y-4">
+                  {editingProduct.complementGroups && editingProduct.complementGroups.length > 0 ? (
+                    editingProduct.complementGroups.map((group, groupIndex) => (
+                      <div key={groupIndex} className="bg-gray-50 rounded-lg p-4 border">
+                        <div className="flex items-center justify-between mb-3">
+                          <input
+                            type="text"
+                            value={group.name}
+                            onChange={(e) => {
+                              const newGroups = [...(editingProduct.complementGroups || [])];
+                              newGroups[groupIndex] = { ...group, name: e.target.value };
+                              setEditingProduct({ ...editingProduct, complementGroups: newGroups });
+                            }}
+                            className="flex-1 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-medium"
+                            placeholder="Nome do grupo"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newGroups = editingProduct.complementGroups?.filter((_, i) => i !== groupIndex) || [];
+                              setEditingProduct({ ...editingProduct, complementGroups: newGroups });
+                            }}
+                            className="ml-2 p-2 text-red-600 hover:bg-red-100 rounded transition-colors"
+                            title="Remover grupo"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                          <div>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={group.required}
+                                onChange={(e) => {
+                                  const newGroups = [...(editingProduct.complementGroups || [])];
+                                  newGroups[groupIndex] = { ...group, required: e.target.checked };
+                                  setEditingProduct({ ...editingProduct, complementGroups: newGroups });
+                                }}
+                                className="w-4 h-4 text-purple-600"
+                              />
+                              <span className="text-sm font-medium text-gray-700">Obrigatório</span>
+                            </label>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Mín. Itens</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={group.minItems}
+                              onChange={(e) => {
+                                const newGroups = [...(editingProduct.complementGroups || [])];
+                                newGroups[groupIndex] = { ...group, minItems: parseInt(e.target.value) || 0 };
+                                setEditingProduct({ ...editingProduct, complementGroups: newGroups });
+                              }}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Máx. Itens</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={group.maxItems}
+                              onChange={(e) => {
+                                const newGroups = [...(editingProduct.complementGroups || [])];
+                                newGroups[groupIndex] = { ...group, maxItems: parseInt(e.target.value) || 1 };
+                                setEditingProduct({ ...editingProduct, complementGroups: newGroups });
+                              }}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Complementos</label>
+                          <div className="space-y-2">
+                            {group.complements.map((complement, compIndex) => (
+                              <div key={compIndex} className="bg-white p-3 rounded border">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Nome</label>
+                                    <input
+                                      type="text"
+                                      value={complement.name}
+                                      onChange={(e) => {
+                                        const newGroups = [...(editingProduct.complementGroups || [])];
+                                        const newComplements = [...group.complements];
+                                        newComplements[compIndex] = { ...complement, name: e.target.value };
+                                        newGroups[groupIndex] = { ...group, complements: newComplements };
+                                        setEditingProduct({ ...editingProduct, complementGroups: newGroups });
+                                      }}
+                                      className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                                      placeholder="Nome do complemento"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Preço (R$)</label>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={complement.price}
+                                      onChange={(e) => {
+                                        const newGroups = [...(editingProduct.complementGroups || [])];
+                                        const newComplements = [...group.complements];
+                                        newComplements[compIndex] = { ...complement, price: parseFloat(e.target.value) || 0 };
+                                        newGroups[groupIndex] = { ...group, complements: newComplements };
+                                        setEditingProduct({ ...editingProduct, complementGroups: newGroups });
+                                      }}
+                                      className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                                      placeholder="0.00"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Ações</label>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newGroups = [...(editingProduct.complementGroups || [])];
+                                        const newComplements = group.complements.filter((_, i) => i !== compIndex);
+                                        newGroups[groupIndex] = { ...group, complements: newComplements };
+                                        setEditingProduct({ ...editingProduct, complementGroups: newGroups });
+                                      }}
+                                      className="w-full p-2 text-red-600 hover:bg-red-100 rounded transition-colors flex items-center justify-center gap-1"
+                                    >
+                                      <Trash2 size={14} />
+                                      Remover
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="mt-2">
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">Descrição</label>
+                                  <input
+                                    type="text"
+                                    value={complement.description || ''}
+                                    onChange={(e) => {
+                                      const newGroups = [...(editingProduct.complementGroups || [])];
+                                      const newComplements = [...group.complements];
+                                      newComplements[compIndex] = { ...complement, description: e.target.value };
+                                      newGroups[groupIndex] = { ...group, complements: newComplements };
+                                      setEditingProduct({ ...editingProduct, complementGroups: newGroups });
+                                    }}
+                                    className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                                    placeholder="Descrição opcional"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                            
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newComplement = {
+                                  id: `comp-${Date.now()}`,
+                                  name: '',
+                                  price: 0,
+                                  description: ''
+                                };
+                                const newGroups = [...(editingProduct.complementGroups || [])];
+                                const newComplements = [...group.complements, newComplement];
+                                newGroups[groupIndex] = { ...group, complements: newComplements };
+                                setEditingProduct({ ...editingProduct, complementGroups: newGroups });
+                              }}
+                              className="w-full bg-green-100 hover:bg-green-200 text-green-700 py-2 px-4 rounded transition-colors flex items-center justify-center gap-2 text-sm"
+                            >
+                              <Plus size={14} />
+                              Adicionar Complemento
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <p className="text-sm text-gray-500 mb-2">Nenhum grupo de complementos configurado</p>
+                    </div>
+                  )}
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newGroup = {
+                        id: `group-${Date.now()}`,
+                        name: '',
+                        required: false,
+                        minItems: 0,
+                        maxItems: 1,
+                        complements: []
+                      };
+                      const newGroups = [...(editingProduct.complementGroups || []), newGroup];
+                      setEditingProduct({ ...editingProduct, complementGroups: newGroups });
+                    }}
+                    className="w-full bg-purple-100 hover:bg-purple-200 text-purple-700 py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+                  >
+                    <Plus size={16} />
+                    Adicionar Grupo de Complementos
+                  </button>
                 </div>
               </div>
 
@@ -542,6 +931,162 @@ const ProductsPanel: React.FC = () => {
                   className="w-full p-3 border border-gray-300 rounded-lg resize-none h-20 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="Descreva o produto..."
                 />
+              </div>
+
+              {/* Availability */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Disponibilidade
+                </label>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de Disponibilidade</label>
+                    <select
+                      value={editingProduct.availability?.type || 'always'}
+                      onChange={(e) => {
+                        const type = e.target.value as 'always' | 'scheduled' | 'specific_days';
+                        setEditingProduct({
+                          ...editingProduct,
+                          availability: {
+                            ...editingProduct.availability,
+                            type
+                          }
+                        });
+                      }}
+                      className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    >
+                      <option value="always">Sempre disponível</option>
+                      <option value="scheduled">Horário programado</option>
+                      <option value="specific_days">Dias específicos</option>
+                    </select>
+                  </div>
+                  
+                  {editingProduct.availability?.type === 'specific_days' && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm font-medium text-blue-800 mb-2">Dias da Semana</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { key: 'monday', label: 'Segunda' },
+                          { key: 'tuesday', label: 'Terça' },
+                          { key: 'wednesday', label: 'Quarta' },
+                          { key: 'thursday', label: 'Quinta' },
+                          { key: 'friday', label: 'Sexta' },
+                          { key: 'saturday', label: 'Sábado' },
+                          { key: 'sunday', label: 'Domingo' }
+                        ].map(({ key, label }) => (
+                          <label key={key} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={editingProduct.availability?.scheduledDays?.days?.[key as keyof typeof editingProduct.availability.scheduledDays.days] || false}
+                              onChange={(e) => {
+                                const availability = editingProduct.availability || { type: 'specific_days' as const };
+                                const scheduledDays = availability.scheduledDays || {
+                                  enabled: true,
+                                  days: {
+                                    monday: false,
+                                    tuesday: false,
+                                    wednesday: false,
+                                    thursday: false,
+                                    friday: false,
+                                    saturday: false,
+                                    sunday: false
+                                  }
+                                };
+                                
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  availability: {
+                                    ...availability,
+                                    scheduledDays: {
+                                      ...scheduledDays,
+                                      days: {
+                                        ...scheduledDays.days,
+                                        [key]: e.target.checked
+                                      }
+                                    }
+                                  }
+                                });
+                              }}
+                              className="w-4 h-4 text-purple-600"
+                            />
+                            <span className="text-sm text-blue-700">{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3 mt-3">
+                        <div>
+                          <label className="block text-xs font-medium text-blue-700 mb-1">Horário Início</label>
+                          <input
+                            type="time"
+                            value={editingProduct.availability?.scheduledDays?.startTime || '00:00'}
+                            onChange={(e) => {
+                              const availability = editingProduct.availability || { type: 'specific_days' as const };
+                              const scheduledDays = availability.scheduledDays || {
+                                enabled: true,
+                                days: {
+                                  monday: false,
+                                  tuesday: false,
+                                  wednesday: false,
+                                  thursday: false,
+                                  friday: false,
+                                  saturday: false,
+                                  sunday: false
+                                }
+                              };
+                              
+                              setEditingProduct({
+                                ...editingProduct,
+                                availability: {
+                                  ...availability,
+                                  scheduledDays: {
+                                    ...scheduledDays,
+                                    startTime: e.target.value
+                                  }
+                                }
+                              });
+                            }}
+                            className="w-full p-2 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-blue-700 mb-1">Horário Fim</label>
+                          <input
+                            type="time"
+                            value={editingProduct.availability?.scheduledDays?.endTime || '23:59'}
+                            onChange={(e) => {
+                              const availability = editingProduct.availability || { type: 'specific_days' as const };
+                              const scheduledDays = availability.scheduledDays || {
+                                enabled: true,
+                                days: {
+                                  monday: false,
+                                  tuesday: false,
+                                  wednesday: false,
+                                  thursday: false,
+                                  friday: false,
+                                  saturday: false,
+                                  sunday: false
+                                }
+                              };
+                              
+                              setEditingProduct({
+                                ...editingProduct,
+                                availability: {
+                                  ...availability,
+                                  scheduledDays: {
+                                    ...scheduledDays,
+                                    endTime: e.target.value
+                                  }
+                                }
+                              });
+                            }}
+                            className="w-full p-2 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Active Status */}
