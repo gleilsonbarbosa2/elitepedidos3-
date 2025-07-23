@@ -542,7 +542,186 @@ const PDVSalesScreen: React.FC<PDVSalesScreenProps> = ({ scaleHook, operator, st
   };
 
   const handlePrintReceipt = () => {
-    setShowPrintPreview(true);
+    // Create thermal print window with pure HTML
+    const printWindow = window.open('', '_blank', 'width=300,height=600');
+    if (!printWindow) {
+      alert('Por favor, permita pop-ups para imprimir');
+      return;
+    }
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Cupom de Venda</title>
+        <style>
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
+          
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            color: black !important;
+            background: white !important;
+          }
+          
+          body {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.3;
+            color: black;
+            background: white;
+            padding: 2mm;
+            width: 76mm;
+          }
+          
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .small { font-size: 12px; }
+          .separator { 
+            border-bottom: 1px dashed black; 
+            margin: 5px 0; 
+            padding-bottom: 5px; 
+          }
+          .flex-between { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+          }
+          .mb-1 { margin-bottom: 2px; }
+          .mb-2 { margin-bottom: 5px; }
+          .mb-3 { margin-bottom: 8px; }
+          .mt-1 { margin-top: 2px; }
+          .mt-2 { margin-top: 5px; }
+          .ml-2 { margin-left: 8px; }
+          
+          img {
+            max-width: 60mm;
+            height: auto;
+            display: block;
+            margin: 5px auto;
+          }
+        </style>
+      </head>
+      <body>
+        <!-- Cabeçalho -->
+        <div class="center mb-3 separator">
+          <div class="bold" style="font-size: 18px;">ELITE AÇAÍ</div>
+          <div class="small">CNPJ: ${storeSettings?.cnpj || '00.000.000/0001-00'}</div>
+          <div class="small">Rua Um, 1614-C, Residencial 1 - Cágado</div>
+          <div class="small">Tel: (85) 98904-1010</div>
+          <div class="small">CUPOM NÃO FISCAL</div>
+        </div>
+        
+        ${paymentType === 'pix' ? `
+        <!-- QR Code PIX -->
+        <div class="center mb-3 separator">
+          <div class="bold mb-2">QR CODE PIX</div>
+          <img 
+            src="/WhatsApp Image 2025-07-22 at 14.53.40.jpeg" 
+            alt="QR Code PIX" 
+            style="width: 60mm; height: 60mm;"
+          />
+          <div class="small">Chave PIX: 85989041010</div>
+          <div class="small">Nome: Grupo Elite</div>
+          <div class="bold">Valor: ${formatPrice(getTotal())}</div>
+        </div>
+        ` : ''}
+
+        <!-- Dados da venda -->
+        <div class="mb-3 separator">
+          <div class="small">Data: ${new Date().toLocaleDateString('pt-BR')}</div>
+          <div class="small">Hora: ${new Date().toLocaleTimeString('pt-BR')}</div>
+          ${customerName ? `<div class="small">Cliente: ${customerName}</div>` : ''}
+          ${customerPhone ? `<div class="small">Telefone: ${customerPhone}</div>` : ''}
+        </div>
+        
+        <!-- Itens -->
+        <div class="mb-3 separator">
+          <div class="bold mb-2">ITENS</div>
+          ${items.map((item, index) => `
+            <div class="mb-2">
+              <div class="bold">${item.product.name}</div>
+              ${item.product.is_weighable ? `
+                <div class="flex-between">
+                  <span class="small">${(item.weight || 0) * 1000}g x ${formatPrice((item.product.price_per_gram || 0) * 1000)}/kg</span>
+                  <span class="small">${formatPrice(item.subtotal)}</span>
+                </div>
+              ` : `
+                <div class="flex-between">
+                  <span class="small">${item.quantity} x ${formatPrice(item.product.unit_price || 0)}</span>
+                  <span class="small">${formatPrice(item.subtotal)}</span>
+                </div>
+              `}
+              ${item.discount > 0 ? `<div class="small">Desconto: -${formatPrice(item.discount)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+        
+        <!-- Totais -->
+        <div class="mb-3 separator">
+          <div class="flex-between">
+            <span class="small">Subtotal:</span>
+            <span class="small">${formatPrice(getSubtotal())}</span>
+          </div>
+          ${getDiscountAmount() > 0 ? `
+          <div class="flex-between">
+            <span class="small">Desconto:</span>
+            <span class="small">-${formatPrice(getDiscountAmount())}</span>
+          </div>
+          ` : ''}
+          <div class="flex-between bold" style="border-top: 1px solid black; padding-top: 3px; margin-top: 3px;">
+            <span>TOTAL:</span>
+            <span>${formatPrice(getTotal())}</span>
+          </div>
+        </div>
+        
+        <!-- Pagamento -->
+        <div class="mb-3 separator">
+          <div class="bold mb-1">PAGAMENTO:</div>
+          <div class="small">Forma: ${paymentTypes.find(t => t.id === paymentType)?.label || paymentType}</div>
+          ${paymentType === 'dinheiro' && receivedAmount > 0 ? `
+          <div class="small">Valor Recebido: ${formatPrice(receivedAmount)}</div>
+          <div class="small">Troco: ${formatPrice(getChangeAmount())}</div>
+          ` : ''}
+          ${paymentType === 'pix' ? `
+          <div class="mt-2">
+            <div class="small">⚠️ IMPORTANTE:</div>
+            <div class="small">Confirme o pagamento PIX</div>
+            <div class="small">antes de liberar o produto</div>
+          </div>
+          ` : ''}
+        </div>
+        
+        <!-- Rodapé -->
+        <div class="center small">
+          <div class="bold mb-2">Obrigado pela preferência!</div>
+          <div>Elite Açaí - O melhor açaí da cidade!</div>
+          <div>Volte sempre!</div>
+          <div class="mt-2" style="border-top: 1px solid black; padding-top: 5px;">
+            <div>Elite Açaí - CNPJ: ${storeSettings?.cnpj || '00.000.000/0001-00'}</div>
+            <div>Impresso: ${new Date().toLocaleString('pt-BR')}</div>
+            <div>Este não é um documento fiscal</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Wait for content to load and print
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 500);
+    };
   };
 
 

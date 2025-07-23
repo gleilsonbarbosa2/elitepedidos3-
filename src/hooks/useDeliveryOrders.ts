@@ -11,6 +11,8 @@ export const useDeliveryOrders = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('🔄 Buscando pedidos de delivery...');
 
       // Get today's date range (start and end of day)
       const today = new Date();
@@ -28,7 +30,9 @@ export const useDeliveryOrders = () => {
       if (error) throw error;
 
       setOrders(data || []);
+      console.log(`✅ ${data?.length || 0} pedidos carregados`);
     } catch (err) {
+      console.error('❌ Erro ao carregar pedidos:', err);
       setError(err instanceof Error ? err.message : 'Erro ao carregar pedidos');
     } finally {
       setLoading(false);
@@ -38,18 +42,32 @@ export const useDeliveryOrders = () => {
   useEffect(() => {
     fetchOrders();
 
-    // Set up real-time subscription for new confirmed orders
+    // Set up real-time subscription for order changes
     const channel = supabase
       .channel('delivery_orders')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'orders',
           filter: 'status=eq.confirmed'
         },
-        () => {
+        (payload) => {
+          console.log('🔔 Novo pedido confirmado via realtime:', payload);
+          fetchOrders();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: 'status=eq.confirmed'
+        },
+        (payload) => {
+          console.log('🔄 Pedido atualizado via realtime:', payload);
           fetchOrders();
         }
       )

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDeliveryAuth } from '../../hooks/useDeliveryAuth';
 import { useDeliveryOrders } from '../../hooks/useDeliveryOrders';
@@ -10,13 +11,66 @@ import {
   LogOut, 
   Package,
   User,
-  AlertCircle
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 
 const DeliveryOrdersPage: React.FC = () => {
   const { user, signOut } = useDeliveryAuth();
   const { orders, loading, error, refetch } = useDeliveryOrders();
   const navigate = useNavigate();
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [overdueCount, setOverdueCount] = useState(0);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+
+  // Update current time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Auto refresh orders every 30 seconds
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const autoRefreshInterval = setInterval(() => {
+      console.log('🔄 Auto-atualizando pedidos...');
+      refetch();
+      setLastRefresh(new Date());
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(autoRefreshInterval);
+  }, [autoRefresh, refetch]);
+
+  // Update last refresh time when orders change
+  useEffect(() => {
+    setLastRefresh(new Date());
+  }, [orders]);
+
+  // Calculate overdue orders
+  useEffect(() => {
+    const now = new Date();
+    const overdue = orders.filter(order => {
+      const orderTime = new Date(order.created_at);
+      const diffMinutes = Math.floor((now.getTime() - orderTime.getTime()) / (1000 * 60));
+      return diffMinutes > 20;
+    }).length;
+    
+    setOverdueCount(overdue);
+  }, [orders, currentTime]);
+
+  const toggleAutoRefresh = () => {
+    setAutoRefresh(prev => !prev);
+    if (!autoRefresh) {
+      // If enabling auto-refresh, refresh immediately
+      refetch();
+      setLastRefresh(new Date());
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -213,81 +267,141 @@ const DeliveryOrdersPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
             <div className="flex items-center gap-3">
               <div className="bg-blue-100 rounded-full p-2">
                 <Truck size={24} className="text-blue-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">Portal do Entregador</h1>
-                <p className="text-gray-600">Pedidos confirmados para entrega</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Portal do Entregador</h1>
+                <p className="text-sm sm:text-base text-gray-600">Pedidos confirmados para entrega</p>
               </div>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
               {user && (
-                <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-lg">
+                <div className="flex items-center gap-2 bg-gray-100 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm">
                   <User size={18} className="text-gray-600" />
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="font-medium text-gray-700 truncate max-w-32 sm:max-w-none">
                     {user.user_metadata?.name || user.email}
                   </span>
                 </div>
               )}
               
-              <button
-                onClick={refetch}
-                disabled={loading}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                Atualizar
-              </button>
-              
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                <LogOut size={16} />
-                Sair
-              </button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={toggleAutoRefresh}
+                  className={`flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-sm flex-1 sm:flex-none ${
+                    autoRefresh 
+                      ? 'bg-green-600 hover:bg-green-700 text-white' 
+                      : 'bg-gray-600 hover:bg-gray-700 text-white'
+                  }`}
+                  title={autoRefresh ? 'Desativar atualização automática' : 'Ativar atualização automática'}
+                >
+                  <div className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-white animate-pulse' : 'bg-gray-300'}`}></div>
+                  <span className="hidden sm:inline">{autoRefresh ? 'Auto' : 'Manual'}</span>
+                </button>
+                
+                <button
+                  onClick={refetch}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-1 sm:gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-sm flex-1 sm:flex-none"
+                  title="Atualizar pedidos manualmente"
+                >
+                  <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                  <span className="hidden sm:inline">Atualizar</span>
+                </button>
+                
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center justify-center gap-1 sm:gap-2 bg-red-500 hover:bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-sm flex-1 sm:flex-none"
+                >
+                  <LogOut size={16} />
+                  <span className="hidden sm:inline">Sair</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Stats */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
             <div className="flex items-center gap-3">
               <Package size={24} className="text-green-600" />
               <div>
-                <h2 className="text-lg font-semibold text-gray-800">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-800">
                   Pedidos de Hoje
                 </h2>
-                <p className="text-gray-600">
+                <p className="text-sm sm:text-base text-gray-600">
                   {orders.length} pedido(s) confirmados hoje ({new Date().toLocaleDateString('pt-BR')})
                 </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <Clock size={14} className="text-gray-500" />
+                  <span className="text-xs text-gray-500">
+                    Última atualização: {lastRefresh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  {autoRefresh && (
+                    <span className="text-xs text-green-600 font-medium">
+                      • Auto (30s)
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             
-            <div className="text-right">
-              <p className="text-2xl font-bold text-green-600">
-                {orders.length}
-              </p>
-              <p className="text-sm text-gray-500">Total</p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* Total Orders */}
+              <div className="text-center sm:text-right">
+                <p className="text-xl sm:text-2xl font-bold text-green-600">
+                  {orders.length}
+                </p>
+                <p className="text-sm text-gray-500">Total</p>
+              </div>
+              
+              {/* Overdue Orders */}
+              {overdueCount > 0 && (
+                <div className="text-center sm:text-right">
+                  <p className="text-xl sm:text-2xl font-bold text-red-600">
+                    {overdueCount}
+                  </p>
+                  <p className="text-sm text-red-500">Urgentes</p>
+                </div>
+              )}
             </div>
           </div>
+          
+          {/* Overdue Alert */}
+          {overdueCount > 0 && (
+            <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                <AlertCircle size={16} className="text-red-600" />
+                <p className="text-sm font-medium text-red-800">
+                  ⚠️ {overdueCount} pedido(s) há mais de 20 minutos aguardando entrega!
+                </p>
+                </div>
+                {autoRefresh && (
+                  <div className="flex items-center gap-1 text-xs text-red-600">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <span>Monitorando</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Error State */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 sm:mb-6">
             <div className="flex items-center gap-3">
               <AlertCircle size={20} className="text-red-600" />
               <div>
-                <h3 className="font-medium text-red-800">Erro ao carregar pedidos</h3>
+                <h3 className="text-sm sm:text-base font-medium text-red-800">Erro ao carregar pedidos</h3>
                 <p className="text-red-700 text-sm">{error}</p>
               </div>
             </div>
@@ -295,19 +409,44 @@ const DeliveryOrdersPage: React.FC = () => {
         )}
 
         {/* Orders List */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {orders.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+            <div className="bg-white rounded-xl shadow-sm p-6 sm:p-12 text-center">
               <Package size={48} className="mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-600 mb-2">
+              <h3 className="text-base sm:text-lg font-medium text-gray-600 mb-2">
                 Nenhum pedido confirmado hoje
               </h3>
-              <p className="text-gray-500">
+              <p className="text-sm sm:text-base text-gray-500">
                 Aguardando pedidos confirmados para hoje ({new Date().toLocaleDateString('pt-BR')})...
               </p>
+              {autoRefresh && (
+                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-green-600">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span>Verificando novos pedidos automaticamente a cada 30s</span>
+                </div>
+              )}
             </div>
           ) : (
-            orders.map(order => (
+            orders
+              .sort((a, b) => {
+                // Sort by urgency first (overdue orders first), then by creation time
+                const now = new Date();
+                const aTime = new Date(a.created_at);
+                const bTime = new Date(b.created_at);
+                const aMinutes = Math.floor((now.getTime() - aTime.getTime()) / (1000 * 60));
+                const bMinutes = Math.floor((now.getTime() - bTime.getTime()) / (1000 * 60));
+                
+                const aOverdue = aMinutes > 20;
+                const bOverdue = bMinutes > 20;
+                
+                // Overdue orders first
+                if (aOverdue && !bOverdue) return -1;
+                if (!aOverdue && bOverdue) return 1;
+                
+                // Then by creation time (oldest first)
+                return aTime.getTime() - bTime.getTime();
+              })
+              .map(order => (
               <DeliveryOrderCard
                 key={order.id}
                 order={order}
