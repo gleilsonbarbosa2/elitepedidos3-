@@ -11,8 +11,10 @@ import {
   Clock, 
   RefreshCw,
   AlertCircle,
-  X
+  X,
+  Printer
 } from 'lucide-react';
+import Store2CashRegisterPrintView from './Store2CashRegisterPrintView';
 
 const Store2CashRegisterMenu: React.FC = () => {
   const {
@@ -35,6 +37,8 @@ const Store2CashRegisterMenu: React.FC = () => {
   const [entryDescription, setEntryDescription] = useState('');
   const [entryPaymentMethod, setEntryPaymentMethod] = useState('dinheiro');
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [showPrintView, setShowPrintView] = useState(false);
+  const [closedRegisterData, setClosedRegisterData] = useState<any>(null);
 
   // Check Supabase configuration on mount
   React.useEffect(() => {
@@ -125,6 +129,15 @@ const Store2CashRegisterMenu: React.FC = () => {
       }
       
       console.log('✅ Caixa da Loja 2 fechado com sucesso');
+      
+      // Salvar dados do caixa fechado para impressão
+      setClosedRegisterData({
+        ...currentRegister,
+        closing_amount: parseFloat(closingAmount),
+        closed_at: new Date().toISOString(),
+        difference: parseFloat(closingAmount) - (summary?.expected_balance || 0)
+      });
+      
       showSuccessNotification();
       setShowCloseModal(false);
       setClosingAmount('');
@@ -186,6 +199,12 @@ const Store2CashRegisterMenu: React.FC = () => {
                 class="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
               >
                 📊 Ver Relatórios
+              </button>
+              <button 
+                onclick="document.querySelector('[data-print-cash]').click()" 
+                class="flex-1 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
+              >
+                🖨️ Imprimir Caixa
               </button>
               <button 
                 onclick="this.closest('.fixed').remove()" 
@@ -417,6 +436,13 @@ const Store2CashRegisterMenu: React.FC = () => {
             </button>
           </>
         )}
+        
+        {/* Botão de impressão oculto para ser chamado pela notificação */}
+        <button
+          data-print-cash
+          onClick={() => setShowPrintView(true)}
+          className="hidden"
+        />
       </div>
 
       {/* Resumo do Caixa */}
@@ -717,6 +743,16 @@ const Store2CashRegisterMenu: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Print View Modal */}
+      {showPrintView && closedRegisterData && (
+        <Store2CashRegisterPrintView
+          register={closedRegisterData}
+          summary={summary}
+          entries={entries}
+          onClose={() => setShowPrintView(false)}
+        />
       )}
     </div>
   );
