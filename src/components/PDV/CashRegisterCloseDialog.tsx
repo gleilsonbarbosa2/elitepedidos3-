@@ -193,19 +193,29 @@ const CashRegisterCloseDialog: React.FC<CashRegisterCloseDialogProps> = ({
             
             <button
               onClick={onPrint}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
-              <Printer size={20} />
-              <span className="font-bold">Imprimir</span> Movimentações do Caixa
+              <div className="bg-white/20 rounded-full p-2">
+                <Printer size={20} />
+              </div>
+              <div className="text-left">
+                <div className="font-bold text-lg">Imprimir Movimentações</div>
+                <div className="text-blue-100 text-sm">Relatório térmico completo</div>
+              </div>
             </button>
             
             {onViewDailyReport && (
               <button
                 onClick={onViewDailyReport}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105"
               >
-                <FileText size={20} />
-                <span className="font-bold">Ver</span> Relatório de Caixa Diário
+                <div className="bg-white/20 rounded-full p-2">
+                  <FileText size={20} />
+                </div>
+                <div className="text-left">
+                  <div className="font-bold text-lg">Ver Relatório Diário</div>
+                  <div className="text-purple-100 text-sm">Análise completa do dia</div>
+                </div>
               </button>
             )}
 
@@ -213,10 +223,15 @@ const CashRegisterCloseDialog: React.FC<CashRegisterCloseDialogProps> = ({
             <button 
               onClick={handleSendWhatsApp}
               disabled={!register || !summary}
-              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-3 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+              className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-500 text-white py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none disabled:shadow-md"
             >
-              <MessageSquare size={20} />
-              <span className="font-bold">Enviar</span> Relatório por WhatsApp
+              <div className="bg-white/20 rounded-full p-2">
+                <MessageSquare size={20} />
+              </div>
+              <div className="text-left">
+                <div className="font-bold text-lg">Enviar por WhatsApp</div>
+                <div className="text-green-100 text-sm">Compartilhar relatório</div>
+              </div>
             </button>
             
             {(!register || !summary) && (
@@ -230,9 +245,9 @@ const CashRegisterCloseDialog: React.FC<CashRegisterCloseDialogProps> = ({
             
             <button
               onClick={handleCloseAll}
-              className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 rounded-xl font-medium transition-colors mt-2"
+              className="w-full bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-gray-800 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg mt-4"
             >
-              Fechar
+              🚪 Fechar e Continuar
             </button>
           </div>
         </div>

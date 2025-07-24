@@ -119,21 +119,22 @@ export const useStore2Users = () => {
         .select('*')
         .eq('username', username)
         .eq('password_hash', password)
-        .eq('is_active', true)
-        .single();
+        .eq('is_active', true);
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) throw error;
       
-      if (data) {
+      const user = data && data.length > 0 ? data[0] : null;
+      
+      if (user) {
         // Atualizar último login
         await supabase
           .from('store2_users')
           .update({ last_login: new Date().toISOString() })
-          .eq('id', data.id);
+          .eq('id', user.id);
       }
       
-      console.log('✅ Credenciais verificadas:', !!data);
-      return data;
+      console.log('✅ Credenciais verificadas:', !!user);
+      return user;
     } catch (err) {
       console.error('❌ Erro ao verificar credenciais da Loja 2:', err);
       return null;

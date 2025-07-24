@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import '../../index.css';
-import { Calculator, ShoppingCart, Printer, AlertCircle, Package, Scale, Plus, Minus, Trash2, Search } from 'lucide-react';
+import { Calculator, ShoppingCart, Printer, AlertCircle, Package, Scale, Plus, Minus, Trash2, Search, Percent, CreditCard, Split, DollarSign } from 'lucide-react';
 import { PDVOperator } from '../../types/pdv';
 import { useStore2PDVCashRegister } from '../../hooks/useStore2PDVCashRegister';
-import { usePDVProducts } from '../../hooks/usePDV';
+import { useStore2Products } from '../../hooks/useStore2Products';
 import { useStore2Sales, useStore2Cart } from '../../hooks/useStore2Sales';
 import { useScale } from '../../hooks/useScale';
 import { PesagemModal } from '../PDV/PesagemModal';
 import { useImageUpload } from '../../hooks/useImageUpload';
-import { X } from 'lucide-react';
 
 interface Store2PDVSalesScreenProps {
   operator?: PDVOperator;
@@ -17,7 +16,7 @@ interface Store2PDVSalesScreenProps {
 
 const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, scaleHook }) => {
   const { isOpen: isCashRegisterOpen, currentRegister, summary } = useStore2PDVCashRegister();
-  const { products, loading: productsLoading, searchProducts } = usePDVProducts();
+  const { products, loading: productsLoading, searchProducts } = useStore2Products();
   const { createSale, loading: salesLoading } = useStore2Sales();
   const { 
     items, 
@@ -25,7 +24,6 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
     removeItem, 
     updateItemQuantity, 
     updateItemWeight,
-    applyItemDiscount,
     clearCart,
     getSubtotal,
     getTotal,
@@ -36,7 +34,6 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
   const scale = scaleHook || useScale();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [showWeightModal, setShowWeightModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [showPesagemModal, setShowPesagemModal] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
@@ -44,13 +41,13 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
   const [productImages, setProductImages] = useState<Record<string, string>>({});
 
   const categories = [
-    { id: 'all', label: 'Todas' },
-    { id: 'acai', label: 'Açaí' },
-    { id: 'sorvetes', label: 'Sorvetes' },
-    { id: 'bebidas', label: 'Bebidas' },
-    { id: 'complementos', label: 'Complementos' },
-    { id: 'sobremesas', label: 'Sobremesas' },
-    { id: 'outros', label: 'Outros' }
+    { id: 'all', label: 'Todos', icon: '🛍️' },
+    { id: 'acai', label: 'Açaí', icon: '🍇' },
+    { id: 'sorvetes', label: 'Sorvetes', icon: '🍦' },
+    { id: 'bebidas', label: 'Bebidas', icon: '🥤' },
+    { id: 'complementos', label: 'Gelatos', icon: '🍨' },
+    { id: 'sobremesas', label: 'Cremes', icon: '🍮' },
+    { id: 'outros', label: 'Massas', icon: '🧁' }
   ];
 
   const formatPrice = (price: number) => {
@@ -117,12 +114,15 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
     }
 
     try {
+      const discountAmount = discount.type === 'amount' ? discount.value : 
+                           discount.type === 'percentage' ? (getSubtotal() * discount.value / 100) : 0;
+
       const saleData = {
         operator_id: operator?.id,
         customer_name: 'Cliente Loja 2',
         customer_phone: '',
         subtotal: getSubtotal(),
-        discount_amount: discount.type === 'amount' ? discount.value : (getSubtotal() * discount.value / 100),
+        discount_amount: discountAmount,
         discount_percentage: discount.type === 'percentage' ? discount.value : 0,
         total_amount: getTotal(),
         payment_type: 'dinheiro' as const,
@@ -145,7 +145,7 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
         subtotal: item.subtotal
       }));
 
-      const sale = await createSale(saleData, saleItems);
+      const sale = await createSale(saleData, saleItems, currentRegister?.id);
       setLastSale(sale);
       clearCart();
       
@@ -260,6 +260,7 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
       }, 500);
     }, 7000);
   };
+
   const getItemPrice = (item: any) => {
     if (item.product.is_weighable && item.weight) {
       return item.weight * 1000 * (item.product.price_per_gram || 0);
@@ -294,7 +295,7 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
       <body>
         <div class="center separator">
           <div class="bold" style="font-size: 16px;">ELITE AÇAÍ - LOJA 2</div>
-          <div>Rua Um, 1614-C – Residencial 1 – Cágado</div>
+          <div>Rua Dois, 2130-A – Residencial 1 – Cágado</div>
           <div>Tel: (85) 98904-1010</div>
         </div>
         
@@ -344,6 +345,15 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
     };
   };
 
+  const getDiscountAmount = () => {
+    if (discount.type === 'percentage') {
+      return getSubtotal() * (discount.value / 100);
+    } else if (discount.type === 'amount') {
+      return Math.min(discount.value, getSubtotal());
+    }
+    return 0;
+  };
+
   if (!isCashRegisterOpen) {
     return (
       <div className="bg-white rounded-xl shadow-sm p-8 text-center">
@@ -359,327 +369,380 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="h-screen bg-gray-50 flex flex-col">
+      {/* Header com busca */}
+      <div className="bg-white border-b border-gray-200 p-4">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
             <Calculator size={24} className="text-blue-600" />
             Vendas - Loja 2
           </h2>
-          <p className="text-gray-600">Sistema de vendas exclusivo da Loja 2</p>
-        </div>
-      </div>
-
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-100 rounded-full p-3">
-              <ShoppingCart size={24} className="text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Vendas Hoje</p>
-              <p className="text-2xl font-bold text-blue-600">{summary.sales_count}</p>
-            </div>
+          <div className="flex items-center gap-4 text-sm text-gray-600">
+            <span>Vendas: {summary.sales_count}</span>
+            <span>Faturamento: {formatPrice(summary.sales_total)}</span>
           </div>
         </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex items-center gap-3">
-            <div className="bg-green-100 rounded-full p-3">
-              <Calculator size={24} className="text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Faturamento</p>
-              <p className="text-2xl font-bold text-green-600">{formatPrice(summary.sales_total)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex items-center gap-3">
-            <div className="bg-purple-100 rounded-full p-3">
-              <Calculator size={24} className="text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Saldo Esperado</p>
-              <p className="text-2xl font-bold text-purple-600">{formatPrice(summary.expected_balance)}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* PDV Interface */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Interface de Vendas - Loja 2</h3>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Produtos */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium text-gray-700">Produtos Disponíveis</h4>
-              <div className="flex items-center gap-2">
-                <Scale size={16} className={scale.connection.isConnected ? 'text-green-600' : 'text-gray-400'} />
-                <span className="text-xs text-gray-500">
-                  {scale.connection.isConnected ? 'Balança conectada' : 'Balança offline'}
-                </span>
-              </div>
+        {/* Barra de busca */}
+        <div className="relative">
+          <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar produtos por nome ou código..."
+            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Área principal de produtos */}
+        <div className="flex-1 flex flex-col">
+          {/* Categorias */}
+          <div className="bg-white border-b border-gray-200 p-4">
+            <div className="flex gap-2 overflow-x-auto">
+              {categories.map(category => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all whitespace-nowrap ${
+                    selectedCategory === category.id
+                      ? 'bg-blue-600 text-white shadow-lg'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <span>{category.icon}</span>
+                  {category.label}
+                </button>
+              ))}
             </div>
-            
-            {/* Search and Category Filter */}
-            <div className="space-y-3">
-              <div className="relative">
-                <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar produtos..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+          </div>
+
+          {/* Grid de produtos */}
+          <div className="flex-1 p-4 overflow-y-auto">
+            {productsLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
-              
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.label}</option>
-                ))}
-              </select>
-            </div>
-            
-            {/* Products List */}
-            <div className="max-h-96 overflow-y-auto">
-              {productsLoading ? (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                  <Package size={48} className="mx-auto text-gray-300 mb-4" />
+                  <p className="text-gray-500">Nenhum produto encontrado</p>
                 </div>
-              ) : filteredProducts.length === 0 ? (
-                <div className="text-center py-4 text-gray-500">
-                  <Package size={32} className="mx-auto text-gray-300 mb-2" />
-                  <p>Nenhum produto encontrado</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {filteredProducts.map(product => (
-                    <div key={product.id} className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
-                      <div className="flex flex-col items-center text-center gap-2">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
-                          {productImages[product.id] ? (
-                            <img 
-                              src={productImages[product.id]} 
-                              alt={product.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : product.image_url ? (
-                            <img 
-                              src={product.image_url} 
-                              alt={product.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <Package size={24} className="text-gray-400" />
-                          )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {filteredProducts.map(product => (
+                  <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 group">
+                    {/* Imagem do produto */}
+                    <div className="relative h-32 bg-gradient-to-br from-blue-50 to-purple-50">
+                      {productImages[product.id] || product.image_url ? (
+                        <img 
+                          src={productImages[product.id] || product.image_url} 
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package size={32} className="text-gray-400" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-center gap-1 mb-1">
-                            <h5 className="font-medium text-gray-800 text-sm truncate">{product.name}</h5>
-                            {product.is_weighable && (
-                              <Scale size={12} className="text-blue-600 flex-shrink-0" />
-                            )}
-                          </div>
-                          <p className="text-xs text-gray-600 mb-1">{product.code}</p>
-                          <p className="text-sm font-semibold text-green-600">
-                            {product.is_weighable 
-                              ? `${formatPrice((product.price_per_gram || 0) * 1000)}/kg`
-                              : formatPrice(product.unit_price || 0)
-                            }
-                          </p>
+                      )}
+                      
+                      {/* Badge de estoque baixo */}
+                      {product.stock_quantity <= product.min_stock && (
+                        <div className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                          Estoque baixo
                         </div>
-                        <button
-                          onClick={() => handleAddProduct(product)}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-2 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-1"
-                        >
-                          <Plus size={14} />
-                          <span className="text-xs">Adicionar</span>
-                        </button>
-                      </div>
+                      )}
+                      
+                      {/* Badge de produto pesável */}
+                      {product.is_weighable && (
+                        <div className="absolute top-2 right-2 bg-blue-500 text-white p-1 rounded-full">
+                          <Scale size={12} />
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+
+                    {/* Informações do produto */}
+                    <div className="p-3">
+                      <h3 className="font-medium text-gray-800 text-sm mb-1 line-clamp-2 min-h-[2.5rem]">
+                        {product.name}
+                      </h3>
+                      
+                      <div className="text-xs text-gray-500 mb-2">
+                        {product.code}
+                      </div>
+                      
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-lg font-bold text-green-600">
+                          {product.is_weighable 
+                            ? `${formatPrice((product.price_per_gram || 0) * 1000)}/kg`
+                            : formatPrice(product.unit_price || 0)
+                          }
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Estoque: {product.stock_quantity}
+                        </div>
+                      </div>
+
+                      {/* Botão de ação */}
+                      <button
+                        onClick={() => handleAddProduct(product)}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                      >
+                        {product.is_weighable ? (
+                          <>
+                            <Scale size={14} />
+                            Pesar
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={14} />
+                            Adicionar
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Carrinho lateral */}
+        <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+          {/* Header do carrinho */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <ShoppingCart size={20} />
+                Carrinho ({items.length})
+              </h3>
+              {items.length > 0 && (
+                <button
+                  onClick={clearCart}
+                  className="text-red-500 hover:text-red-700 p-1"
+                  title="Limpar carrinho"
+                >
+                  <Trash2 size={16} />
+                </button>
               )}
             </div>
           </div>
 
-          {/* Carrinho */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium text-gray-700">Carrinho de Vendas</h4>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">
-                  {items.length} {items.length === 1 ? 'item' : 'itens'}
-                </span>
-                {items.length > 0 && (
-                  <button
-                    onClick={clearCart}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                  >
-                    Limpar
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            <div className="border border-gray-200 rounded-lg max-h-96 overflow-y-auto">
-              {items.length === 0 ? (
-                <div className="text-center py-12 px-4">
+          {/* Itens do carrinho */}
+          <div className="flex-1 overflow-y-auto">
+            {items.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-gray-500">
                   <ShoppingCart size={32} className="mx-auto text-gray-300 mb-2" />
-                  <p className="text-gray-500 text-sm">Carrinho vazio</p>
-                  <p className="text-gray-400 text-xs mt-1">Adicione produtos para começar a venda</p>
+                  <p className="text-sm">Carrinho vazio</p>
+                  <p className="text-xs text-gray-400 mt-1">Adicione produtos para começar</p>
                 </div>
-              ) : (
-                <div className="divide-y divide-gray-200">
-                  {items.map(item => (
-                    <div key={`${item.product.id}-${Date.now()}`} className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
-                          {productImages[item.product.id] ? (
-                            <img 
-                              src={productImages[item.product.id]} 
-                              alt={item.product.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : item.product.image_url ? (
-                            <img 
-                              src={item.product.image_url} 
-                              alt={item.product.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <Package size={24} className="text-gray-400" />
-                          )}
+              </div>
+            ) : (
+              <div className="p-4 space-y-3">
+                {items.map(item => (
+                  <div key={`${item.product.id}-${Date.now()}`} className="bg-gray-50 rounded-lg p-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
+                        {productImages[item.product.id] || item.product.image_url ? (
+                          <img 
+                            src={productImages[item.product.id] || item.product.image_url} 
+                            alt={item.product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Package size={20} className="text-gray-400" />
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-gray-800 text-sm truncate">{item.product.name}</h4>
+                            <p className="text-xs text-gray-500">{item.product.code}</p>
+                          </div>
+                          
+                          <button
+                            onClick={() => removeItem(item.product.id)}
+                            className="text-red-500 hover:text-red-700 p-1 ml-2 flex-shrink-0"
+                            title="Remover item"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                         
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <h5 className="font-medium text-gray-800 truncate">{item.product.name}</h5>
-                                {item.product.is_weighable && (
-                                  <Scale size={14} className="text-blue-600 flex-shrink-0" />
-                                )}
-                              </div>
-                              <p className="text-sm text-gray-500">{item.product.code}</p>
+                        {/* Controles de quantidade/peso */}
+                        {item.product.is_weighable && item.weight ? (
+                          <div className="mt-2">
+                            <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                              <span>Peso:</span>
+                              <span className="font-medium">{(item.weight * 1000).toFixed(0)}g</span>
                             </div>
-                            
-                            <button
-                              onClick={() => removeItem(item.product.id)}
-                              className="text-red-500 hover:text-red-700 p-1 ml-2 flex-shrink-0"
-                              title="Remover item"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                          
-                          {item.product.is_weighable && item.weight ? (
-                            <div className="mt-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm text-gray-600">Peso:</span>
-                                <span className="text-sm font-medium">{(item.weight * 1000).toFixed(0)}g</span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => updateItemWeight(item.product.id, Math.max(0.1, item.weight - 0.1))}
+                                className="bg-gray-200 hover:bg-gray-300 rounded-full p-1 transition-colors"
+                              >
+                                <Minus size={10} />
+                              </button>
+                              <div className="flex-1 text-center text-xs">
+                                {(item.weight * 1000).toFixed(0)}g
                               </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => updateItemWeight(item.product.id, Math.max(0.1, item.weight - 0.1))}
-                                  className="bg-gray-200 hover:bg-gray-300 rounded-full p-1 transition-colors"
-                                >
-                                  <Minus size={12} />
-                                </button>
-                                <div className="flex-1 text-center">
-                                  <span className="text-sm font-medium">{(item.weight * 1000).toFixed(0)}g</span>
-                                </div>
-                                <button
-                                  onClick={() => updateItemWeight(item.product.id, item.weight + 0.1)}
-                                  className="bg-gray-200 hover:bg-gray-300 rounded-full p-1 transition-colors"
-                                >
-                                  <Plus size={12} />
-                                </button>
-                              </div>
-                              <div className="mt-2 text-xs text-gray-500">
-                                Preço: {formatPrice((item.product.price_per_gram || 0) * 1000)}/kg
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="mt-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm text-gray-600">Quantidade:</span>
-                                <span className="text-sm font-medium">{item.quantity}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => updateItemQuantity(item.product.id, item.quantity - 1)}
-                                  className="bg-gray-200 hover:bg-gray-300 rounded-full p-1 transition-colors"
-                                >
-                                  <Minus size={12} />
-                                </button>
-                                <div className="flex-1 text-center">
-                                  <span className="text-sm font-medium">{item.quantity}</span>
-                                </div>
-                                <button
-                                  onClick={() => updateItemQuantity(item.product.id, item.quantity + 1)}
-                                  className="bg-gray-200 hover:bg-gray-300 rounded-full p-1 transition-colors"
-                                >
-                                  <Plus size={12} />
-                                </button>
-                              </div>
-                              <div className="mt-2 text-xs text-gray-500">
-                                Preço unitário: {formatPrice(item.product.unit_price || 0)}
-                              </div>
-                            </div>
-                          )}
-                          
-                          <div className="mt-3 pt-3 border-t border-gray-100">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">Subtotal:</span>
-                              <span className="text-lg font-bold text-green-600">
-                                {formatPrice(item.subtotal)}
-                              </span>
+                              <button
+                                onClick={() => updateItemWeight(item.product.id, item.weight + 0.1)}
+                                className="bg-gray-200 hover:bg-gray-300 rounded-full p-1 transition-colors"
+                              >
+                                <Plus size={10} />
+                              </button>
                             </div>
                           </div>
+                        ) : (
+                          <div className="mt-2">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => updateItemQuantity(item.product.id, item.quantity - 1)}
+                                className="bg-gray-200 hover:bg-gray-300 rounded-full p-1 transition-colors"
+                              >
+                                <Minus size={10} />
+                              </button>
+                              <div className="flex-1 text-center text-sm font-medium">
+                                {item.quantity}
+                              </div>
+                              <button
+                                onClick={() => updateItemQuantity(item.product.id, item.quantity + 1)}
+                                className="bg-gray-200 hover:bg-gray-300 rounded-full p-1 transition-colors"
+                              >
+                                <Plus size={10} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="mt-2 text-right">
+                          <span className="text-sm font-bold text-green-600">
+                            {formatPrice(item.subtotal)}
+                          </span>
                         </div>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Footer do carrinho */}
+          {items.length > 0 && (
+            <div className="border-t border-gray-200 p-4 space-y-4">
+              {/* Resumo */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Subtotal:</span>
+                  <span className="font-medium">{formatPrice(getSubtotal())}</span>
                 </div>
-              )}
+                
+                {discount.type !== 'none' && discount.value > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Desconto:</span>
+                    <span className="font-medium text-red-600">-{formatPrice(getDiscountAmount())}</span>
+                  </div>
+                )}
+                
+                <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200">
+                  <span>Total:</span>
+                  <span className="text-green-600">{formatPrice(getTotal())}</span>
+                </div>
+              </div>
+
+              {/* Botões de ação */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setDiscount(prev => ({ 
+                    type: prev.type === 'percentage' ? 'none' : 'percentage', 
+                    value: prev.type === 'percentage' ? 0 : 10 
+                  }))}
+                  className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                    discount.type === 'percentage'
+                      ? 'bg-orange-600 text-white'
+                      : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                  }`}
+                >
+                  <Percent size={16} />
+                  Desconto
+                </button>
+                
+                <button
+                  onClick={handlePrintOrder}
+                  className="flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <Printer size={16} />
+                  Imprimir
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <DollarSign size={16} />
+                  Pagamento
+                </button>
+                
+                <button
+                  className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <Split size={16} />
+                  Dividir
+                </button>
+              </div>
+
+              <button
+                onClick={handleFinalizeSale}
+                disabled={items.length === 0 || salesLoading}
+                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                <ShoppingCart size={20} />
+                {salesLoading ? 'Processando...' : 'Finalizar Venda'}
+              </button>
             </div>
-            
-            {/* Discount Section */}
-            {items.length > 0 && (
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h5 className="font-medium text-gray-700 mb-3">Desconto</h5>
-                <div className="flex gap-2 mb-3">
+          )}
+        </div>
+      </div>
+
+      {/* Modal de desconto */}
+      {discount.type === 'percentage' && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Aplicar Desconto</h3>
+              <button
+                onClick={() => setDiscount({ type: 'none', value: 0 })}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <Trash2 size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Desconto
+                </label>
+                <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => setDiscount({ type: 'none', value: 0 })}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      discount.type === 'none'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Sem desconto
-                  </button>
-                  <button
-                    onClick={() => setDiscount({ type: 'percentage', value: 0 })}
+                    onClick={() => setDiscount({ type: 'percentage', value: discount.value })}
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       discount.type === 'percentage'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                   >
-                    Percentual
+                    Percentual (%)
                   </button>
                   <button
                     onClick={() => setDiscount({ type: 'amount', value: 0 })}
@@ -689,101 +752,59 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                   >
-                    Valor fixo
+                    Valor (R$)
                   </button>
                 </div>
-                
-                {discount.type !== 'none' && (
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      step={discount.type === 'percentage' ? '1' : '0.01'}
-                      min="0"
-                      max={discount.type === 'percentage' ? '100' : undefined}
-                      value={discount.value}
-                      onChange={(e) => setDiscount(prev => ({ ...prev, value: parseFloat(e.target.value) || 0 }))}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder={discount.type === 'percentage' ? '0' : '0,00'}
-                    />
-                    <span className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
-                      {discount.type === 'percentage' ? '%' : 'R$'}
-                    </span>
-                  </div>
-                )}
               </div>
-            )}
-            
-            {/* Cart Summary */}
-            {items.length > 0 && (
-              <div className="bg-blue-50 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Subtotal:</span>
-                  <span className="font-medium text-gray-800">{formatPrice(getSubtotal())}</span>
-                </div>
-                
-                {discount.type !== 'none' && discount.value > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">
-                      Desconto ({discount.type === 'percentage' ? `${discount.value}%` : formatPrice(discount.value)}):
-                    </span>
-                    <span className="font-medium text-red-600">
-                      -{formatPrice(discount.type === 'percentage' ? (getSubtotal() * discount.value / 100) : discount.value)}
-                    </span>
-                  </div>
-                )}
-                
-                <div className="pt-2 border-t border-blue-200">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold text-gray-800">Total:</span>
-                    <span className="text-xl font-bold text-green-600">{formatPrice(getTotal())}</span>
-                  </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {discount.type === 'percentage' ? 'Percentual de Desconto' : 'Valor do Desconto'}
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step={discount.type === 'percentage' ? '1' : '0.01'}
+                    min="0"
+                    max={discount.type === 'percentage' ? '100' : getSubtotal()}
+                    value={discount.value}
+                    onChange={(e) => setDiscount(prev => ({ ...prev, value: parseFloat(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0"
+                  />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                    {discount.type === 'percentage' ? '%' : 'R$'}
+                  </span>
                 </div>
               </div>
-            )}
-        
-            {/* Action Buttons */}
-            <div className="space-y-2">
+
+              <div className="bg-blue-50 rounded-lg p-3">
+                <div className="flex justify-between text-sm">
+                  <span>Subtotal:</span>
+                  <span>{formatPrice(getSubtotal())}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Desconto:</span>
+                  <span className="text-red-600">-{formatPrice(getDiscountAmount())}</span>
+                </div>
+                <div className="flex justify-between font-bold pt-2 border-t border-blue-200 mt-2">
+                  <span>Total:</span>
+                  <span className="text-green-600">{formatPrice(getTotal())}</span>
+                </div>
+              </div>
+
               <button
-                onClick={handleFinalizeSale}
-                disabled={items.length === 0 || salesLoading}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                onClick={() => setDiscount({ type: 'none', value: 0 })}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors"
               >
-                <ShoppingCart size={20} />
-                {salesLoading ? 'Processando...' : 'Finalizar Venda'}
-              </button>
-              
-              <button
-                onClick={handlePrintOrder}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
-              >
-                <Printer size={20} />
-                Imprimir Pedido (80mm)
+                Aplicar Desconto
               </button>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Informações da Loja 2 */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-blue-100 rounded-full p-2">
-            <AlertCircle size={20} className="text-blue-600" />
-          </div>
-          <div>
-            <h3 className="font-medium text-blue-800">Loja 2 - Características</h3>
-            <ul className="text-blue-700 text-sm mt-1 space-y-1">
-              <li>• Não possui sistema de delivery</li>
-              <li>• Vendas apenas presenciais</li>
-              <li>• Relatórios separados da Loja 1</li>
-              <li>• Configurações independentes</li>
-              <li>• Impressão automática de pedidos</li>
-            </ul>
-          </div>
-        </div>
-      </div>
+      )}
       
-      {/* Weight Modal */}
+      {/* Modal de pesagem */}
       {showPesagemModal && selectedProduct && (
         <PesagemModal
           produto={selectedProduct}

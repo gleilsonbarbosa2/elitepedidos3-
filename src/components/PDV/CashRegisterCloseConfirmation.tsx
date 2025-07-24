@@ -160,6 +160,47 @@ const CashRegisterCloseConfirmation: React.FC<CashRegisterCloseConfirmationProps
               <p className="text-xs text-gray-500 mt-1">
                 Informe o valor real em caixa no momento do fechamento
               </p>
+              
+              {/* Aviso de diferença */}
+              {closingAmount !== (summary?.expected_balance || 0) && closingAmount > 0 && (
+                <div className={`mt-2 p-3 rounded-lg border ${
+                  closingAmount > (summary?.expected_balance || 0)
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-red-50 border-red-200'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={16} className={
+                      closingAmount > (summary?.expected_balance || 0)
+                        ? 'text-green-600'
+                        : 'text-red-600'
+                    } />
+                    <div>
+                      <p className={`text-sm font-medium ${
+                        closingAmount > (summary?.expected_balance || 0)
+                          ? 'text-green-800'
+                          : 'text-red-800'
+                      }`}>
+                        {closingAmount > (summary?.expected_balance || 0) ? '💰 Sobra no Caixa' : '⚠️ Falta no Caixa'}
+                      </p>
+                      <p className={`text-sm ${
+                        closingAmount > (summary?.expected_balance || 0)
+                          ? 'text-green-700'
+                          : 'text-red-700'
+                      }`}>
+                        Diferença: {formatPrice(Math.abs(closingAmount - (summary?.expected_balance || 0)))}
+                        {closingAmount > (summary?.expected_balance || 0) ? ' a mais' : ' a menos'}
+                      </p>
+                      <p className={`text-xs mt-1 ${
+                        closingAmount > (summary?.expected_balance || 0)
+                          ? 'text-green-600'
+                          : 'text-red-600'
+                      }`}>
+                        Saldo esperado: {formatPrice(summary?.expected_balance || 0)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

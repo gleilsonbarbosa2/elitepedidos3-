@@ -3,18 +3,15 @@ import '../../index.css';
 import { 
   Calculator, 
   DollarSign, 
-  Settings,
   ArrowLeft,
   ShoppingBag,
   AlertCircle,
   User,
   LogOut,
-  Store,
-  BarChart3
+  Store
 } from 'lucide-react';
 import Store2PDVSalesScreen from './Store2PDVSalesScreen';
 import Store2CashRegisterMenu from './Store2CashRegisterMenu';
-import Store2Settings from './Store2Settings';
 import { useScale } from '../../hooks/useScale';
 import { useStore2PDVCashRegister } from '../../hooks/useStore2PDVCashRegister';
 import { PDVOperator } from '../../types/pdv';
@@ -25,7 +22,7 @@ interface Store2UnifiedAttendancePageProps {
 }
 
 const Store2UnifiedAttendancePage: React.FC<Store2UnifiedAttendancePageProps> = ({ operator, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'sales' | 'cash' | 'settings'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'cash'>('sales');
   const { isOpen: isCashRegisterOpen } = useStore2PDVCashRegister();
   const scale = useScale();
   const [supabaseConfigured, setSupabaseConfigured] = useState(true);
@@ -55,7 +52,7 @@ const Store2UnifiedAttendancePage: React.FC<Store2UnifiedAttendancePageProps> = 
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">Loja 2 - Atendimento</h1>
-                <p className="text-gray-600">Elite Açaí - Unidade 2 (Rua Um, 1614-C)</p>
+                <p className="text-gray-600">Elite Açaí - Unidade 2 (Rua Dois, 2130-A)</p>
               </div>
             </div>
             
@@ -148,34 +145,6 @@ const Store2UnifiedAttendancePage: React.FC<Store2UnifiedAttendancePageProps> = 
               <DollarSign size={20} />
               Caixas
             </button>
-
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                activeTab === 'settings'
-                  ? 'bg-purple-600 text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Settings size={20} />
-              Configurações
-            </button>
-
-            <button
-              onClick={() => window.location.href = '/relatorios_loja2'}
-              className="px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 bg-gray-100 text-gray-700 hover:bg-gray-200"
-            >
-              <BarChart3 size={20} />
-              Relatórios
-            </button>
-
-            <button
-              onClick={() => window.location.href = '/gerenciamento_loja2'}
-              className="px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 bg-gray-100 text-gray-700 hover:bg-gray-200"
-            >
-              <Settings size={20} />
-              Gerenciamento
-            </button>
           </div>
         </div>
 
@@ -183,7 +152,6 @@ const Store2UnifiedAttendancePage: React.FC<Store2UnifiedAttendancePageProps> = 
         <div className="transition-all duration-300 print:hidden">
           {activeTab === 'sales' && <Store2PDVSalesScreen operator={operator} scaleHook={scale} />}
           {activeTab === 'cash' && <Store2CashRegisterMenu />}
-          {activeTab === 'settings' && <Store2Settings />}
         </div>
       </div>
     </div>

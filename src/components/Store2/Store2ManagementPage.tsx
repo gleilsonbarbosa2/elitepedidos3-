@@ -9,15 +9,16 @@ import {
   Store,
   Clock,
   Tag,
-  Printer
+  Printer,
+  BarChart3
 } from 'lucide-react';
 import Store2UsersManager from './Store2UsersManager';
-import Store2ProductsManager from './Store2ProductsManager';
 import Store2Settings from './Store2Settings';
+import Store2ProductsManager from './Store2ProductsManager';
 
 const Store2ManagementPage: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'users' | 'products' | 'settings'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'products' | 'settings' | 'reports'>('users');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -67,7 +68,7 @@ const Store2ManagementPage: React.FC = () => {
             </div>
             <h1 className="text-2xl font-bold text-gray-800 mb-2">Gerenciamento - Loja 2</h1>
             <p className="text-gray-600">Elite Açaí - Acesso Restrito</p>
-            <p className="text-sm text-purple-600 mt-2">Rua Um, 1614-C – Residencial 1 – Cágado</p>
+            <p className="text-sm text-purple-600 mt-2">Rua Dois, 2130-A – Residencial 1 – Cágado</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
@@ -174,6 +175,13 @@ const Store2ManagementPage: React.FC = () => {
       icon: Settings,
       color: 'bg-purple-600',
       description: 'Loja, impressora e balança'
+    },
+    {
+      id: 'reports' as const,
+      label: 'Relatórios',
+      icon: BarChart3,
+      color: 'bg-indigo-600',
+      description: 'Relatórios de caixa e vendas'
     }
   ];
 
@@ -182,27 +190,76 @@ const Store2ManagementPage: React.FC = () => {
       case 'users':
         return <Store2UsersManager />;
       case 'products':
+        return <Store2ProductsManager />;
+      case 'settings':
+        return <Store2Settings />;
+      case 'reports':
         return (
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <div className="text-center py-8">
-              <Package size={48} className="mx-auto text-blue-300 mb-4" />
-              <h3 className="text-lg font-medium text-blue-800 mb-2">
-                Produtos Compartilhados
-              </h3>
-              <p className="text-blue-700 mb-4">
-                A Loja 2 usa os mesmos produtos da Loja 1 para manter consistência.
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <BarChart3 size={24} className="text-indigo-600" />
+                Relatórios da Loja 2
+              </h2>
+              <p className="text-gray-600 mb-6">
+                Acesse os relatórios específicos da Loja 2 para análise detalhada das operações.
               </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
-                <p className="text-sm text-blue-600">
-                  <strong>Para gerenciar produtos:</strong><br/>
-                  Acesse o sistema principal em <code>/pdv</code> ou <code>/administrativo</code>
-                </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="bg-blue-100 rounded-full p-2">
+                      <BarChart3 size={20} className="text-blue-600" />
+                    </div>
+                    <h3 className="font-semibold text-blue-800">Relatórios de Caixa</h3>
+                  </div>
+                  <p className="text-blue-700 text-sm mb-4">
+                    Acesse relatórios detalhados de movimentações de caixa, vendas e análises financeiras da Loja 2.
+                  </p>
+                  <button
+                    onClick={() => window.location.href = '/relatorios_loja2'}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                  >
+                    Acessar Relatórios
+                  </button>
+                </div>
+                
+                <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="bg-gray-100 rounded-full p-2">
+                      <Settings size={20} className="text-gray-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-800">Configurações Avançadas</h3>
+                  </div>
+                  <p className="text-gray-700 text-sm mb-4">
+                    Configure horários de funcionamento, impressora e outras configurações específicas da Loja 2.
+                  </p>
+                  <div className="text-center">
+                    <span className="text-sm text-gray-500">
+                      Disponível na aba "Configurações" acima
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="bg-blue-100 rounded-full p-2 flex-shrink-0">
+                    <BarChart3 size={20} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-blue-800 mb-2">Tipos de Relatórios Disponíveis</h4>
+                    <ul className="text-blue-700 text-sm space-y-1">
+                      <li>• <strong>Relatório Diário:</strong> Resumo das movimentações do dia</li>
+                      <li>• <strong>Histórico Detalhado:</strong> Lista expandível de todos os registros</li>
+                      <li>• <strong>Relatório por Período:</strong> Análise consolidada por período</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         );
-      case 'settings':
-        return <Store2Settings />;
       default:
         return <Store2UsersManager />;
     }
@@ -220,7 +277,7 @@ const Store2ManagementPage: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">Gerenciamento - Loja 2</h1>
-                <p className="text-gray-600">Elite Açaí - Unidade 2 (Rua Um, 1614-C)</p>
+                <p className="text-gray-600">Elite Açaí - Unidade 2 (Rua Dois, 2130-A)</p>
               </div>
             </div>
             
@@ -265,7 +322,6 @@ const Store2ManagementPage: React.FC = () => {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {managementTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -296,7 +352,6 @@ const Store2ManagementPage: React.FC = () => {
                 </button>
               );
             })}
-          </div>
         </div>
 
         {/* Content */}

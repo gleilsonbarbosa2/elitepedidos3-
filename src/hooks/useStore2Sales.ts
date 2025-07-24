@@ -58,17 +58,24 @@ export const useStore2Sales = () => {
 
   const createSale = useCallback(async (
     saleData: Omit<Store2Sale, 'id' | 'sale_number' | 'created_at' | 'updated_at'>,
-    items: Omit<Store2SaleItem, 'id' | 'sale_id' | 'created_at'>[]
+    items: Omit<Store2SaleItem, 'id' | 'sale_id' | 'created_at'>[],
+    cashRegisterId?: string
   ) => {
     try {
       setLoading(true);
       console.log('🚀 Criando venda na Loja 2:', saleData);
 
+      // Associar com caixa se fornecido
+      const saleWithCashRegister = cashRegisterId ? {
+        ...saleData,
+        cash_register_id: cashRegisterId
+      } : saleData;
+
       // Criar venda
       const { data: sale, error: saleError } = await supabase
         .from('store2_sales')
         .insert([{
-          ...saleData,
+          ...saleWithCashRegister,
           channel: 'loja2'
         }])
         .select()
@@ -101,6 +108,24 @@ export const useStore2Sales = () => {
         throw new Error(`Erro ao criar itens da venda: ${itemsError.message}`);
       }
 
+      // Adicionar entrada no caixa se houver caixa aberto
+      if (cashRegisterId && saleData.payment_type === 'dinheiro') {
+        try {
+          console.log('💰 Adicionando venda ao caixa da Loja 2:', sale.id);
+          await supabase
+            .from('pdv2_cash_entries')
+            .insert([{
+              register_id: cashRegisterId,
+              type: 'income',
+              amount: sale.total_amount,
+              description: `Venda #${sale.sale_number} - Loja 2`,
+              payment_method: sale.payment_type
+            }]);
+          console.log('✅ Entrada de caixa criada para venda da Loja 2');
+        } catch (cashError) {
+          console.error('⚠️ Erro ao adicionar entrada no caixa (venda salva):', cashError);
+        }
+      }
       console.log('✅ Itens da venda da Loja 2 criados');
       setSales(prev => [sale, ...prev]);
       return sale;
