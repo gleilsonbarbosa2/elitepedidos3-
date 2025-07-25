@@ -699,6 +699,114 @@ const ProductsPanelDB: React.FC = () => {
                 />
               </div>
 
+              {/* Sizes Configuration */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tamanhos Disponíveis
+                </label>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={editingProduct.sizes ? JSON.parse(editingProduct.sizes || '[]').length > 0 : false}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          const defaultSizes = [
+                            { id: 'pequeno', name: 'Pequeno (300ml)', price: editingProduct.price * 0.7, description: 'Tamanho pequeno' },
+                            { id: 'medio', name: 'Médio (500ml)', price: editingProduct.price, description: 'Tamanho médio' },
+                            { id: 'grande', name: 'Grande (700ml)', price: editingProduct.price * 1.3, description: 'Tamanho grande' }
+                          ];
+                          setEditingProduct({
+                            ...editingProduct,
+                            sizes: JSON.stringify(defaultSizes)
+                          });
+                        } else {
+                          setEditingProduct({
+                            ...editingProduct,
+                            sizes: null
+                          });
+                        }
+                      }}
+                      className="w-4 h-4 text-purple-600"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      Produto possui diferentes tamanhos
+                    </span>
+                  </label>
+                  
+                  {editingProduct.sizes && JSON.parse(editingProduct.sizes || '[]').length > 0 && (
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                      <h4 className="font-medium text-gray-800">Configurar Tamanhos:</h4>
+                      {JSON.parse(editingProduct.sizes || '[]').map((size: any, index: number) => (
+                        <div key={index} className="grid grid-cols-3 gap-3">
+                          <input
+                            type="text"
+                            value={size.name}
+                            onChange={(e) => {
+                              const sizes = JSON.parse(editingProduct.sizes || '[]');
+                              sizes[index].name = e.target.value;
+                              setEditingProduct({
+                                ...editingProduct,
+                                sizes: JSON.stringify(sizes)
+                              });
+                            }}
+                            placeholder="Nome do tamanho"
+                            className="p-2 border border-gray-300 rounded text-sm"
+                          />
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={size.price}
+                            onChange={(e) => {
+                              const sizes = JSON.parse(editingProduct.sizes || '[]');
+                              sizes[index].price = parseFloat(e.target.value) || 0;
+                              setEditingProduct({
+                                ...editingProduct,
+                                sizes: JSON.stringify(sizes)
+                              });
+                            }}
+                            placeholder="Preço"
+                            className="p-2 border border-gray-300 rounded text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const sizes = JSON.parse(editingProduct.sizes || '[]');
+                              sizes.splice(index, 1);
+                              setEditingProduct({
+                                ...editingProduct,
+                                sizes: JSON.stringify(sizes)
+                              });
+                            }}
+                            className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const sizes = JSON.parse(editingProduct.sizes || '[]');
+                          sizes.push({
+                            id: `size-${Date.now()}`,
+                            name: '',
+                            price: editingProduct.price,
+                            description: ''
+                          });
+                          setEditingProduct({
+                            ...editingProduct,
+                            sizes: JSON.stringify(sizes)
+                          });
+                        }}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Adicionar Tamanho
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
               {/* Has Complements */}
               <div>
                 <label className="flex items-center gap-2">
@@ -720,6 +828,168 @@ const ProductsPanelDB: React.FC = () => {
                 </p>
               </div>
 
+              {/* Complement Groups Configuration */}
+              {editingProduct.has_complements && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Grupos de Complementos
+                  </label>
+                  <div className="space-y-4">
+                    {/* Quick Setup Buttons */}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const standardGroups = [
+                            {
+                              id: 'tipo-acai',
+                              name: 'TIPO DE AÇAÍ (ESCOLHA 1 ITEM)',
+                              required: true,
+                              minItems: 1,
+                              maxItems: 1,
+                              complements: [
+                                { id: 'acai-tradicional', name: 'AÇAÍ PREMIUM TRADICIONAL', price: 0, description: 'Açaí tradicional premium' },
+                                { id: 'acai-fit', name: 'AÇAÍ PREMIUM (0% AÇÚCAR - FIT)', price: 0, description: 'Açaí sem açúcar' },
+                                { id: 'acai-morango', name: 'AÇAÍ PREMIUM COM MORANGO', price: 0, description: 'Açaí com sabor morango' }
+                              ]
+                            },
+                            {
+                              id: 'cremes-opcional',
+                              name: 'CREMES * OPCIONAL (ATÉ 2 ITEM)',
+                              required: false,
+                              minItems: 0,
+                              maxItems: 2,
+                              complements: [
+                                { id: 'creme-cupuacu', name: 'CREME DE CUPUAÇU', price: 0, description: 'Creme cremoso de cupuaçu' },
+                                { id: 'creme-morango', name: 'CREME DE MORANGO', price: 0, description: 'Creme doce de morango' },
+                                { id: 'creme-ninho', name: 'CREME DE NINHO', price: 0, description: 'Creme de leite ninho' },
+                                { id: 'creme-nutela', name: 'CREME DE NUTELA', price: 0, description: 'Creme de nutella' }
+                              ]
+                            },
+                            {
+                              id: 'adicionais-3',
+                              name: '3 ADICIONAIS * OPCIONAL (ATÉ 3 ITENS)',
+                              required: false,
+                              minItems: 0,
+                              maxItems: 3,
+                              complements: [
+                                { id: 'granola', name: 'GRANOLA', price: 0, description: 'Granola crocante' },
+                                { id: 'morango', name: 'MORANGO', price: 0, description: 'Morango fresco' },
+                                { id: 'leite-condensado', name: 'LEITE CONDENSADO', price: 0, description: 'Leite condensado' },
+                                { id: 'pacoca', name: 'PAÇOCA', price: 0, description: 'Paçoca triturada' }
+                              ]
+                            }
+                          ];
+                          setEditingProduct({
+                            ...editingProduct,
+                            complement_groups: JSON.stringify(standardGroups)
+                          });
+                        }}
+                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Complementos Padrão Açaí
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const milkshakeGroups = [
+                            {
+                              id: 'sabor-milkshake',
+                              name: 'Escolha o Sabor',
+                              required: true,
+                              minItems: 1,
+                              maxItems: 1,
+                              complements: [
+                                { id: 'morango', name: 'Morango', price: 0, description: 'Milkshake de morango' },
+                                { id: 'chocolate', name: 'Chocolate', price: 0, description: 'Milkshake de chocolate' },
+                                { id: 'baunilha', name: 'Baunilha', price: 0, description: 'Milkshake de baunilha' },
+                                { id: 'ovomaltine', name: 'Ovomaltine', price: 0, description: 'Milkshake de ovomaltine' }
+                              ]
+                            }
+                          ];
+                          setEditingProduct({
+                            ...editingProduct,
+                            complement_groups: JSON.stringify(milkshakeGroups)
+                          });
+                        }}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Sabores Milkshake
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProduct({
+                            ...editingProduct,
+                            complement_groups: null
+                          });
+                        }}
+                        className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Limpar Complementos
+                      </button>
+                    </div>
+                    
+                    {/* Complement Groups Editor */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-800 mb-3">Editor de Complementos:</h4>
+                      <textarea
+                        value={editingProduct.complement_groups ? 
+                          JSON.stringify(JSON.parse(editingProduct.complement_groups), null, 2) : 
+                          ''
+                        }
+                        onChange={(e) => {
+                          try {
+                            // Validar JSON
+                            JSON.parse(e.target.value);
+                            setEditingProduct({
+                              ...editingProduct,
+                              complement_groups: e.target.value
+                            });
+                          } catch (error) {
+                            // JSON inválido, mas permitir edição
+                            setEditingProduct({
+                              ...editingProduct,
+                              complement_groups: e.target.value
+                            });
+                          }
+                        }}
+                        className="w-full p-3 border border-gray-300 rounded-lg font-mono text-sm h-40 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="Configuração JSON dos grupos de complementos..."
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        💡 Use os botões acima para configurações rápidas ou edite o JSON diretamente
+                      </p>
+                      
+                      {/* JSON Validation */}
+                      {editingProduct.complement_groups && (() => {
+                        try {
+                          JSON.parse(editingProduct.complement_groups);
+                          return (
+                            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              JSON válido
+                            </p>
+                          );
+                        } catch (error) {
+                          return (
+                            <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                              JSON inválido: {error instanceof Error ? error.message : 'Erro de sintaxe'}
+                            </p>
+                          );
+                        }
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
               {/* Active Status */}
               <div>
                 <label className="flex items-center gap-2">
@@ -739,6 +1009,43 @@ const ProductsPanelDB: React.FC = () => {
                 <p className="text-xs text-gray-500 mt-1">
                   Desmarcar remove o produto do delivery instantaneamente
                 </p>
+              </div>
+              
+              {/* Availability Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Disponibilidade
+                </label>
+                <select
+                  value={editingProduct.availability_type || 'always'}
+                  onChange={(e) => setEditingProduct({
+                    ...editingProduct,
+                    availability_type: e.target.value as 'always' | 'scheduled' | 'specific_days'
+                  })}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="always">Sempre disponível</option>
+                  <option value="specific_days">Dias específicos (ex: Quinta Elite)</option>
+                  <option value="scheduled">Horário programado</option>
+                </select>
+                
+                {editingProduct.availability_type === 'specific_days' && (
+                  <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-700 mb-2 font-medium">
+                      Configurar Dias Específicos:
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleScheduleProduct(editingProduct)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+                    >
+                      Configurar Programação de Dias
+                    </button>
+                    <p className="text-xs text-blue-600 mt-2">
+                      Use para promoções como "Quinta Elite", "Promoção de Segunda", etc.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
