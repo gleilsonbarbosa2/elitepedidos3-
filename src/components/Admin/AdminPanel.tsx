@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Package, MapPin, Clock, Users, LogOut, ShoppingBag, Settings } from 'lucide-react';
-import ProductsPanel from './ProductsPanel';
+import ProductsPanelDB from './ProductsPanelDB';
 import NeighborhoodsPanel from './NeighborhoodsPanel';
 import StoreHoursPanel from './StoreHoursPanel';
 import UnifiedAttendancePage from '../UnifiedAttendancePage';
-import AttendanceUsersPanel from './AttendanceUsersPanel';
+import AttendanceUsersPanelDB from './AttendanceUsersPanelDB';
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -16,7 +16,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'products':
-        return <ProductsPanel />;
+        return <ProductsPanelDB />;
       case 'neighborhoods':
         return <NeighborhoodsPanel />;
       case 'hours':
@@ -24,9 +24,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout }) => {
       case 'pdv':
         return <UnifiedAttendancePage />;
       case 'users':
-        return <AttendanceUsersPanel />;
+        return <AttendanceUsersPanelDB />;
       default:
-        return <ProductsPanel />;
+        return <ProductsPanelDB />;
     }
   };
 

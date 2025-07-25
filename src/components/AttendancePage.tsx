@@ -43,8 +43,8 @@ const AttendancePage: React.FC = () => {
   // Se não está logado, mostrar tela de login
   return (
     <AttendanceLogin 
-      onLogin={(username, password) => {
-        const success = login(username, password);
+      onLogin={async (username, password) => {
+        const success = await login(username, password);
         return success;
       }} 
     />

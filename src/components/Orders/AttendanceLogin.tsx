@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 
 interface AttendanceLoginProps {
-  onLogin: (username: string, password: string) => boolean;
+  onLogin: (username: string, password: string) => Promise<boolean>;
 }
 
 const AttendanceLogin: React.FC<AttendanceLoginProps> = ({ onLogin }) => {
@@ -20,7 +20,7 @@ const AttendanceLogin: React.FC<AttendanceLoginProps> = ({ onLogin }) => {
     // Simular delay de autenticação
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    const success = onLogin(username, password);
+    const success = await onLogin(username, password);
     
     if (!success) {
       setError('Credenciais inválidas');
