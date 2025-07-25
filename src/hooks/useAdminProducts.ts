@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { products as deliveryProducts } from '../data/products';
-import { Product } from '../types/product';
+import { products as staticProducts } from '../data/products';
 
 export interface AdminProduct {
   id: string;
@@ -61,7 +60,7 @@ export const useAdminProducts = () => {
     try {
       console.log('🔄 Sincronizando produtos do delivery para o banco...');
       
-      const productsToInsert = deliveryProducts.map((product: Product) => ({
+      const productsToInsert = staticProducts.map((product) => ({
         name: product.name,
         category: product.category,
         price: product.price,

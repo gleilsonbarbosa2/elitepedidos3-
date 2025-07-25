@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, MapPin, Clock, Users, LogOut, ShoppingBag, Settings, Database } from 'lucide-react';
+import { Package, MapPin, Clock, Users, LogOut, Settings, Database } from 'lucide-react';
 import ProductsPanelDB from './ProductsPanelDB';
 import NeighborhoodsPanel from './NeighborhoodsPanel';
 import StoreHoursPanel from './StoreHoursPanel';

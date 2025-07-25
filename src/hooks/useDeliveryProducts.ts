@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Product } from '../types/product';
+import { products as staticProducts } from '../data/products';
 
 export const useDeliveryProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -21,8 +22,6 @@ export const useDeliveryProducts = () => {
           supabaseKey === 'your_supabase_anon_key_here' ||
           supabaseUrl.includes('placeholder')) {
         console.warn('⚠️ Supabase não configurado - usando produtos estáticos');
-        // Fallback para produtos estáticos se Supabase não estiver configurado
-        const { products: staticProducts } = await import('../data/products');
         setProducts(staticProducts);
         setLoading(false);
         return;
@@ -39,7 +38,6 @@ export const useDeliveryProducts = () => {
       // Se não há produtos no banco, usar produtos estáticos como fallback
       if (!data || data.length === 0) {
         console.log('📦 Nenhum produto no banco, usando produtos estáticos');
-        const { products: staticProducts } = await import('../data/products');
         setProducts(staticProducts);
         setLoading(false);
         return;

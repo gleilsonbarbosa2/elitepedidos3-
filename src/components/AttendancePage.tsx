@@ -1,11 +1,9 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import AttendanceLogin from './Orders/AttendanceLogin';
 import UnifiedAttendancePage from './UnifiedAttendancePage';
 import { useAttendance } from '../hooks/useAttendance';
 
 const AttendancePage: React.FC = () => {
-  const navigate = useNavigate();
   const { session, login, logout } = useAttendance();
 
   // Se o atendente está logado, mostrar painel de atendimento

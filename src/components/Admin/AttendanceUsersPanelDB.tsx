@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAdminAttendanceUsers } from '../../hooks/useAdminAttendanceUsers';
-import { AdminAttendanceUser } from '../../hooks/useAdminAttendanceUsers';
 import { Users, Plus, Edit3, Trash2, Search, Eye, EyeOff, Lock, Save, User } from 'lucide-react';
+import type { AdminAttendanceUser } from '../../hooks/useAdminAttendanceUsers';
 
 const AttendanceUsersPanelDB: React.FC = () => {
   const { 

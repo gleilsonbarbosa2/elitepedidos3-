@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAdminProducts } from '../../hooks/useAdminProducts';
-import { AdminProduct } from '../../hooks/useAdminProducts';
 import { 
   Package, 
   Plus, 
@@ -21,6 +20,7 @@ import {
 import ImageUploadModal from './ImageUploadModal';
 import ProductScheduleModal from './ProductScheduleModal';
 import { useProductScheduling } from '../../hooks/useProductScheduling';
+import type { AdminProduct } from '../../hooks/useAdminProducts';
 
 const ProductsPanelDB: React.FC = () => {
   const { 

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useAdminAttendanceUsers } from './useAdminAttendanceUsers';
+import type { AdminAttendanceUser } from './useAdminAttendanceUsers';
 
 interface AttendanceSession {
   isAuthenticated: boolean;
