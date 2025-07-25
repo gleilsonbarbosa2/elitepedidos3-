@@ -43,7 +43,7 @@ export const useAdminProducts = () => {
 
       if (error) throw error;
       setProducts(data || []);
-      console.log(`✅ ${data?.length || 0} produtos carregados do banco`);
+      console.log(\`✅ ${data?.length || 0} produtos carregados do banco`);
       
       // Se não há produtos no banco, sincronizar com produtos do delivery
       if (!data || data.length === 0) {
@@ -92,7 +92,7 @@ export const useAdminProducts = () => {
       if (error) throw error;
       
       setProducts(data || []);
-      console.log(`✅ ${data?.length || 0} produtos sincronizados com sucesso`);
+      console.log(\`✅ ${data?.length || 0} produtos sincronizados com sucesso`);
       
       // Mostrar notificação de sucesso
       const notification = document.createElement('div');
