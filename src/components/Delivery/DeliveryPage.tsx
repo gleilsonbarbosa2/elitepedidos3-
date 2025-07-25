@@ -65,6 +65,13 @@ const DeliveryPage: React.FC = () => {
     }
   }, []);
   
+  // Validar programação de produtos (apenas em desenvolvimento)
+  React.useEffect(() => {
+    if (activeProducts.length > 0) {
+      validateProductSchedules(activeProducts);
+    }
+  }, [activeProducts]);
+  
   // Filtrar apenas produtos ativos
   const activeProducts = products.filter(product => {
     const isActive = product.isActive !== false;
@@ -89,11 +96,6 @@ const DeliveryPage: React.FC = () => {
       </div>
     );
   }
-  
-  // Validar programação de produtos (apenas em desenvolvimento)
-  React.useEffect(() => {
-    validateProductSchedules(activeProducts);
-  }, [activeProducts]);
   
   // Função para filtrar produtos baseado na categoria selecionada
   const getFilteredProducts = () => {
