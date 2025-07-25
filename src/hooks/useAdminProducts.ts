@@ -8,6 +8,8 @@ export interface AdminProduct {
   category: 'acai' | 'combo' | 'milkshake' | 'vitamina' | 'sorvetes' | 'bebidas' | 'complementos' | 'sobremesas' | 'outros';
   price: number;
   original_price?: number;
+  code?: string; // Adicionado o campo code
+  barcode?: string; // Adicionado o campo barcode
   price_per_gram?: number;
   description: string;
   image_url?: string;
@@ -65,6 +67,8 @@ export const useAdminProducts = () => {
         category: product.category,
         price: product.price,
         original_price: product.originalPrice,
+        code: product.code, // Incluir o campo code
+        barcode: product.barcode, // Incluir o campo barcode
         price_per_gram: product.pricePerGram,
         description: product.description,
         image_url: product.image,
@@ -114,7 +118,7 @@ export const useAdminProducts = () => {
   }, []);
 
   const createProduct = useCallback(async (product: Omit<AdminProduct, 'id' | 'created_at' | 'updated_at'>) => {
-    try {
+    try {      
       console.log('🚀 Criando produto no banco:', product);
       
       const { data, error } = await supabase
@@ -135,7 +139,7 @@ export const useAdminProducts = () => {
   }, []);
 
   const updateProduct = useCallback(async (id: string, updates: Partial<AdminProduct>) => {
-    try {
+    try {      
       console.log('✏️ Atualizando produto no banco:', id, updates);
       
       const { data, error } = await supabase
