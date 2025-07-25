@@ -87,10 +87,10 @@ const OrderPrintView: React.FC<OrderPrintViewProps> = ({ order, storeSettings, o
         <div class="center mb-3 separator">
           <div class="bold" style="font-size: 16px;">ELITE AÇAÍ</div>
           <div class="small">Delivery Premium</div>
-          <div class="small">Rua Dois, 2130-A</div>
+          <div class="small">Rua Um, 1614-C</div>
           <div class="small">Residencial 1 - Cágado</div>
           <div class="small">Tel: (85) 98904-1010</div>
-          <div class="small">CNPJ: ${storeSettings?.cnpj || '00.000.000/0001-00'}</div>
+          <div class="small">CNPJ: ${storeSettings?.cnpj || '38.130.139/0001-22'}</div>
         </div>
         
         ${order.payment_method === 'pix' ? `
@@ -333,10 +333,10 @@ const OrderPrintView: React.FC<OrderPrintViewProps> = ({ order, storeSettings, o
               <div className="text-center mb-4">
                 <p className="font-bold text-lg">ELITE AÇAÍ</p>
                 <p className="text-sm">Delivery Premium</p>
-                <p className="text-xs">Rua Dois, 2130-A</p>
+                <p className="text-xs">Rua Um, 1614-C</p>
                 <p className="text-xs">Residencial 1 - Cágado</p>
                 <p className="text-xs">Tel: (85) 98904-1010</p>
-                <p className="text-xs">CNPJ: {storeSettings?.cnpj || '00.000.000/0001-00'}</p>
+                <p className="text-xs">CNPJ: {storeSettings?.cnpj || '38.130.139/0001-22'}</p>
                 <p className="text-xs">--------------------------</p>
               </div>
               
@@ -439,7 +439,7 @@ const OrderPrintView: React.FC<OrderPrintViewProps> = ({ order, storeSettings, o
             <p style={{ fontSize: '10px', margin: '2px 0' }}>Rua Dois, 2130-A</p>
             <p style={{ fontSize: '10px', margin: '2px 0' }}>Residencial 1 - Cágado</p>
             <p style={{ fontSize: '10px', margin: '2px 0' }}>Tel: (85) 98904-1010</p>
-            <p style={{ fontSize: '10px', margin: '2px 0' }}>CNPJ: {storeSettings?.cnpj || '00.000.000/0001-00'}</p>
+            <p style={{ fontSize: '10px', margin: '2px 0' }}>CNPJ: {storeSettings?.cnpj || '38.130.139/0001-22'}</p>
           </div>
 
           {/* QR Code PIX */}
@@ -542,7 +542,7 @@ const OrderPrintView: React.FC<OrderPrintViewProps> = ({ order, storeSettings, o
             <p style={{ margin: '2px 0' }}>@eliteacai</p>
             <p style={{ margin: '2px 0' }}>⭐⭐⭐⭐⭐ Avalie-nos no Google</p>
             <div style={{ marginTop: '15px', paddingTop: '10px', borderTop: '1px solid black' }}>
-              <p style={{ margin: '2px 0' }}>Elite Açaí - CNPJ: {storeSettings?.cnpj || '00.000.000/0001-00'}</p>
+              <p style={{ margin: '2px 0' }}>Elite Açaí - CNPJ: {storeSettings?.cnpj || '38.130.139/0001-22'}</p>
               <p style={{ margin: '2px 0' }}>Impresso: {new Date().toLocaleString('pt-BR')}</p>
               <p style={{ margin: '2px 0' }}>Este não é um documento fiscal</p>
             </div>

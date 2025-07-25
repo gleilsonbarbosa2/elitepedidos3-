@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import '../../index.css';
 import { supabase } from '../../lib/supabase';
+import { getPaymentMethodName } from '../../utils/formatters';
 import { useStore2PDVCashRegister } from '../../hooks/useStore2PDVCashRegister';
 import { 
   DollarSign,
   ArrowDownCircle, 
   ArrowUpCircle, 
   Plus, 
+  Minus,
   ShoppingBag, 
   Clock, 
   RefreshCw,
@@ -15,6 +17,7 @@ import {
   Printer
 } from 'lucide-react';
 import Store2CashRegisterPrintView from './Store2CashRegisterPrintView';
+import Store2CashRegisterDetails from './Store2CashRegisterDetails';
 
 const Store2CashRegisterMenu: React.FC = () => {
   const {
@@ -39,6 +42,78 @@ const Store2CashRegisterMenu: React.FC = () => {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showPrintView, setShowPrintView] = useState(false);
   const [closedRegisterData, setClosedRegisterData] = useState<any>(null);
+  const [showBillCounting, setShowBillCounting] = useState(false);
+  
+  // Bill counting state
+  const [billCounts, setBillCounts] = useState({
+    '200': 0,
+    '100': 0,
+    '50': 0,
+    '20': 0,
+    '10': 0,
+    '5': 0,
+    '2': 0,
+    '1': 0,
+    '0.50': 0,
+    '0.25': 0,
+    '0.10': 0,
+    '0.05': 0,
+    '0.01': 0
+  });
+
+  const billValues = [
+    { value: '200', label: 'R$ 200,00', color: 'bg-purple-100' },
+    { value: '100', label: 'R$ 100,00', color: 'bg-blue-100' },
+    { value: '50', label: 'R$ 50,00', color: 'bg-yellow-100' },
+    { value: '20', label: 'R$ 20,00', color: 'bg-orange-100' },
+    { value: '10', label: 'R$ 10,00', color: 'bg-red-100' },
+    { value: '5', label: 'R$ 5,00', color: 'bg-green-100' },
+    { value: '2', label: 'R$ 2,00', color: 'bg-gray-100' },
+    { value: '1', label: 'R$ 1,00', color: 'bg-yellow-50' },
+    { value: '0.50', label: 'R$ 0,50', color: 'bg-gray-50' },
+    { value: '0.25', label: 'R$ 0,25', color: 'bg-gray-50' },
+    { value: '0.10', label: 'R$ 0,10', color: 'bg-gray-50' },
+    { value: '0.05', label: 'R$ 0,05', color: 'bg-gray-50' },
+    { value: '0.01', label: 'R$ 0,01', color: 'bg-gray-50' }
+  ];
+
+  const calculateBillTotal = () => {
+    return Object.entries(billCounts).reduce((total, [value, count]) => {
+      return total + (parseFloat(value) * count);
+    }, 0);
+  };
+
+  const updateBillCount = (value: string, increment: boolean) => {
+    setBillCounts(prev => ({
+      ...prev,
+      [value]: Math.max(0, prev[value] + (increment ? 1 : -1))
+    }));
+  };
+
+  const resetBillCounts = () => {
+    setBillCounts({
+      '200': 0,
+      '100': 0,
+      '50': 0,
+      '20': 0,
+      '10': 0,
+      '5': 0,
+      '2': 0,
+      '1': 0,
+      '0.50': 0,
+      '0.25': 0,
+      '0.10': 0,
+      '0.05': 0,
+      '0.01': 0
+    });
+  };
+
+  const applyBillTotal = () => {
+    const total = calculateBillTotal();
+    setOpeningAmount(total.toFixed(2));
+    setShowBillCounting(false);
+    resetBillCounts();
+  };
 
   // Check Supabase configuration on mount
   React.useEffect(() => {
@@ -447,41 +522,74 @@ const Store2CashRegisterMenu: React.FC = () => {
 
       {/* Resumo do Caixa */}
       {currentRegister && (
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Resumo do Caixa - Loja 2</h3>
+        <>
+          <Store2CashRegisterDetails register={currentRegister} summary={summary} onRefresh={refreshData} />
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Valor de abertura:</span>
-                <span className="font-medium">{formatPrice(summary.opening_amount)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Vendas:</span>
-                <span className="font-medium text-green-600">{formatPrice(summary.sales_total)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Outras entradas:</span>
-                <span className="font-medium text-green-600">{formatPrice(summary.other_income_total)}</span>
-              </div>
+          {/* Histórico de Movimentações */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">Histórico de Movimentações - Loja 2</h3>
             </div>
             
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Saídas:</span>
-                <span className="font-medium text-red-600">{formatPrice(summary.total_expense)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Saldo esperado:</span>
-                <span className="font-medium text-purple-600">{formatPrice(summary.expected_balance)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Vendas realizadas:</span>
-                <span className="font-medium">{summary.sales_count}</span>
-              </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Data/Hora</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Tipo</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Descrição</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Forma</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Valor</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {entries.map((entry) => (
+                    <tr key={entry.id} className="hover:bg-gray-50">
+                      <td className="py-4 px-4">
+                        <span className="text-sm text-gray-600">{new Date(entry.created_at).toLocaleString('pt-BR')}</span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          {entry.type === 'income' ? (
+                            <ArrowDownCircle size={16} className="text-green-600" />
+                          ) : (
+                            <ArrowUpCircle size={16} className="text-red-600" />
+                          )}
+                          <span className={`text-sm font-medium ${
+                            entry.type === 'income' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {entry.type === 'income' ? 'Entrada' : 'Saída'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="text-sm text-gray-800">{entry.description}</span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="text-sm text-gray-600">{getPaymentMethodName(entry.payment_method)}</span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className={`font-semibold ${
+                          entry.type === 'income' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {entry.type === 'income' ? '+' : '-'}
+                          {formatPrice(entry.amount)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+            
+            {entries.length === 0 && (
+              <div className="text-center py-12">
+                <DollarSign size={48} className="mx-auto text-gray-300 mb-4" />
+                <p className="text-gray-500">Nenhuma movimentação registrada - Loja 2</p>
+              </div>
+            )}
           </div>
-        </div>
+        </>
       )}
 
       {/* Open Register Modal */}
@@ -512,6 +620,14 @@ const Store2CashRegisterMenu: React.FC = () => {
                   placeholder="0,00"
                 />
               </div>
+
+              <button
+                onClick={() => setShowBillCounting(true)}
+                className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors"
+              >
+                <DollarSign size={16} />
+                Contar Dinheiro
+              </button>
 
               <div className="flex gap-2">
                 <button
@@ -738,6 +854,78 @@ const Store2CashRegisterMenu: React.FC = () => {
                   className={`flex-1 ${entryType === 'income' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'} disabled:bg-gray-300 text-white px-4 py-2 rounded-lg transition-colors`}
                 >
                   Adicionar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bill Counting Modal */}
+      {showBillCounting && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Contar Dinheiro - Loja 2</h3>
+              <button
+                onClick={() => setShowBillCounting(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {billValues.map((bill) => (
+                  <div key={bill.value} className={`flex items-center justify-between p-3 rounded-lg ${bill.color}`}>
+                    <span className="font-medium">{bill.label}</span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => updateBillCount(bill.value, false)}
+                        className="p-1 rounded-full bg-white hover:bg-gray-100 transition-colors"
+                      >
+                        <Minus size={16} />
+                      </button>
+                      <span className="w-12 text-center font-semibold">
+                        {billCounts[bill.value]}
+                      </span>
+                      <button
+                        onClick={() => updateBillCount(bill.value, true)}
+                        className="p-1 rounded-full bg-white hover:bg-gray-100 transition-colors"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t pt-4 mt-4">
+                <div className="flex justify-between items-center text-lg font-semibold">
+                  <span>Total:</span>
+                  <span>R$ {calculateBillTotal().toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={resetBillCounts}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Limpar
+                </button>
+                <button
+                  onClick={() => setShowBillCounting(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={applyBillTotal}
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  Aplicar
                 </button>
               </div>
             </div>

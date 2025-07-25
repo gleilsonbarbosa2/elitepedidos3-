@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import '../../index.css';
-import { Calculator, ShoppingCart, Printer, AlertCircle, Package, Scale, Plus, Minus, Trash2, Search, Percent, CreditCard, Split, DollarSign } from 'lucide-react';
+import { Calculator, ShoppingCart, Printer, AlertCircle, Package, Scale, Plus, Minus, Trash2, Search, Percent, CreditCard, Split, DollarSign, X } from 'lucide-react';
 import { PDVOperator } from '../../types/pdv';
 import { useStore2PDVCashRegister } from '../../hooks/useStore2PDVCashRegister';
 import { useStore2Products } from '../../hooks/useStore2Products';
@@ -37,6 +37,20 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [showPesagemModal, setShowPesagemModal] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [tempDiscount, setTempDiscount] = useState({ type: 'none' as 'none' | 'percentage' | 'amount', value: 0 });
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'dinheiro' | 'pix' | 'cartao_credito' | 'cartao_debito' | 'voucher' | 'misto'>('dinheiro');
+  const [changeFor, setChangeFor] = useState<number>(0);
+  const [pixValue, setPixValue] = useState<number>(0);
+  const [cardValue, setCardValue] = useState<number>(0);
+  const [voucherValue, setVoucherValue] = useState<number>(0);
+  const [splitCount, setSplitCount] = useState<number>(2);
+  const [splitAmounts, setSplitAmounts] = useState<number[]>([]);
+  const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '' });
+  const [saleNotes, setSaleNotes] = useState('');
+  const [calculatedChange, setCalculatedChange] = useState(0);
   const { getProductImage } = useImageUpload();
   const [productImages, setProductImages] = useState<Record<string, string>>({});
 
@@ -89,6 +103,17 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
     loadProductImages();
   }, [filteredProducts, getProductImage]);
 
+  // Calculate change when payment method is money and changeFor is set
+  React.useEffect(() => {
+    if (paymentMethod === 'dinheiro' && changeFor) {
+      const total = getTotal();
+      const change = changeFor - total;
+      setCalculatedChange(change);
+    } else {
+      setCalculatedChange(0);
+    }
+  }, [changeFor, paymentMethod, getTotal]);
+
   const handleAddProduct = (product: any, quantity: number = 1) => {
     if (product.is_weighable) {
       setSelectedProduct(product);
@@ -119,16 +144,26 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
 
       const saleData = {
         operator_id: operator?.id,
-        customer_name: 'Cliente Loja 2',
-        customer_phone: '',
+        customer_name: customerInfo.name || 'Cliente Loja 2',
+        customer_phone: customerInfo.phone || '',
         subtotal: getSubtotal(),
         discount_amount: discountAmount,
         discount_percentage: discount.type === 'percentage' ? discount.value : 0,
         total_amount: getTotal(),
-        payment_type: 'dinheiro' as const,
-        payment_details: {},
-        change_amount: 0,
-        notes: 'Venda Loja 2',
+        payment_type: paymentMethod,
+        payment_details: {
+          method: paymentMethod,
+          change_for: paymentMethod === 'dinheiro' ? changeFor : undefined,
+          pix_value: paymentMethod === 'misto' ? pixValue : undefined,
+          card_value: paymentMethod === 'misto' ? cardValue : undefined,
+          voucher_value: paymentMethod === 'misto' ? voucherValue : undefined,
+          split_info: splitAmounts.length > 1 ? {
+            parts: splitCount,
+            amounts: splitAmounts
+          } : undefined
+        },
+        change_amount: paymentMethod === 'dinheiro' && changeFor > 0 ? changeFor - getTotal() : 0,
+        notes: saleNotes || `Venda Loja 2 - ${getPaymentMethodLabel(paymentMethod)}`,
         is_cancelled: false,
         channel: 'loja2'
       };
@@ -148,6 +183,19 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
       const sale = await createSale(saleData, saleItems, currentRegister?.id);
       setLastSale(sale);
       clearCart();
+      setShowPaymentModal(false);
+      setCalculatedChange(0);
+      
+      // Resetar estados após venda finalizada
+      setPaymentMethod('dinheiro');
+      setChangeFor(0);
+      setPixValue(0);
+      setCardValue(0);
+      setVoucherValue(0);
+      setSplitCount(2);
+      setSplitAmounts([]);
+      setCustomerInfo({ name: '', phone: '' });
+      setSaleNotes('');
       
       // Auto print for Store 2
       setTimeout(() => {
@@ -160,6 +208,73 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
       console.error('Erro ao finalizar venda:', error);
       showErrorNotification('Erro ao finalizar venda');
     }
+  };
+
+  const handleOpenDiscountModal = () => {
+    setTempDiscount(discount);
+    setShowDiscountModal(true);
+  };
+
+  const handleApplyDiscount = () => {
+    setDiscount(tempDiscount);
+    setShowDiscountModal(false);
+  };
+
+  const handleCancelDiscount = () => {
+    setTempDiscount({ type: 'none', value: 0 });
+    setShowDiscountModal(false);
+  };
+
+  const handleOpenPaymentModal = () => {
+    setShowPaymentModal(true);
+  };
+
+  const handleClosePaymentModal = () => {
+    setShowPaymentModal(false);
+    // Não resetar valores para manter a seleção
+  };
+
+  const handleOpenSplitModal = () => {
+    const total = getTotal();
+    const splitAmount = total / splitCount;
+    setSplitAmounts(Array(splitCount).fill(splitAmount));
+    setShowSplitModal(true);
+  };
+
+  const handleCloseSplitModal = () => {
+    setShowSplitModal(false);
+    // Não resetar valores para manter a configuração
+  };
+
+  const updateSplitAmount = (index: number, amount: number) => {
+    const newAmounts = [...splitAmounts];
+    newAmounts[index] = amount;
+    setSplitAmounts(newAmounts);
+  };
+
+  const getSplitTotal = () => {
+    return splitAmounts.reduce((sum, amount) => sum + amount, 0);
+  };
+
+  const getPaymentMethodLabel = (method: string) => {
+    const labels: Record<string, string> = {
+      'dinheiro': 'Dinheiro',
+      'pix': 'PIX',
+      'cartao_credito': 'Cartão de Crédito',
+      'cartao_debito': 'Cartão de Débito',
+      'voucher': 'Voucher',
+      'misto': 'Pagamento Misto'
+    };
+    return labels[method] || method;
+  };
+
+  const getTempDiscountAmount = () => {
+    if (tempDiscount.type === 'percentage') {
+      return getSubtotal() * (tempDiscount.value / 100);
+    } else if (tempDiscount.type === 'amount') {
+      return Math.min(tempDiscount.value, getSubtotal());
+    }
+    return 0;
   };
 
   const showSuccessNotification = () => {
@@ -653,6 +768,49 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
                   </div>
                 )}
                 
+                {paymentMethod && paymentMethod !== 'dinheiro' && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Pagamento:</span>
+                    <span className="font-medium text-blue-600">{getPaymentMethodLabel(paymentMethod)}</span>
+                  </div>
+                )}
+                
+                {paymentMethod === 'misto' && (
+                  <div className="space-y-1">
+                    {(changeFor || 0) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Dinheiro:</span>
+                        <span className="font-medium text-green-600">{formatPrice(changeFor || 0)}</span>
+                      </div>
+                    )}
+                    {(pixValue || 0) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">PIX:</span>
+                        <span className="font-medium text-blue-600">{formatPrice(pixValue || 0)}</span>
+                      </div>
+                    )}
+                    {(cardValue || 0) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Cartão:</span>
+                        <span className="font-medium text-purple-600">{formatPrice(cardValue || 0)}</span>
+                      </div>
+                    )}
+                    {(voucherValue || 0) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Voucher:</span>
+                        <span className="font-medium text-orange-600">{formatPrice(voucherValue || 0)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {splitAmounts.length > 1 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Dividido:</span>
+                    <span className="font-medium text-purple-600">{splitCount} partes</span>
+                  </div>
+                )}
+                
                 <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200">
                   <span>Total:</span>
                   <span className="text-green-600">{formatPrice(getTotal())}</span>
@@ -662,12 +820,9 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
               {/* Botões de ação */}
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => setDiscount(prev => ({ 
-                    type: prev.type === 'percentage' ? 'none' : 'percentage', 
-                    value: prev.type === 'percentage' ? 0 : 10 
-                  }))}
+                  onClick={handleOpenDiscountModal}
                   className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                    discount.type === 'percentage'
+                    discount.type !== 'none'
                       ? 'bg-orange-600 text-white'
                       : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                   }`}
@@ -687,6 +842,7 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
 
               <div className="grid grid-cols-2 gap-2">
                 <button
+                  onClick={handleOpenPaymentModal}
                   className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors"
                 >
                   <DollarSign size={16} />
@@ -694,6 +850,7 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
                 </button>
                 
                 <button
+                  onClick={handleOpenSplitModal}
                   className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors"
                 >
                   <Split size={16} />
@@ -714,17 +871,450 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
         </div>
       </div>
 
+      {/* Modal de pagamento */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
+          <div className="bg-white rounded-xl max-w-sm w-full max-h-[95vh] flex flex-col">
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <CreditCard size={20} />
+                  Pagamento
+                </h2>
+                <button
+                  onClick={handleClosePaymentModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Forma de Pagamento *
+                  </label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <label className="flex items-center gap-3 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="dinheiro"
+                        checked={paymentMethod === 'dinheiro'}
+                        onChange={(e) => setPaymentMethod(e.target.value as any)}
+                        className="text-blue-600 h-4 w-4"
+                      />
+                      <div className="flex items-center gap-2 text-sm">
+                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z" />
+                        </svg>
+                        <span className="font-medium">Dinheiro</span>
+                      </div>
+                    </label>
+                    
+                    <label className="flex items-center gap-3 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="pix"
+                        checked={paymentMethod === 'pix'}
+                        onChange={(e) => setPaymentMethod(e.target.value as any)}
+                        className="text-blue-600 h-4 w-4"
+                      />
+                      <div className="flex items-center gap-2 text-sm">
+                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <span className="font-medium">PIX</span>
+                      </div>
+                    </label>
+                    
+                    <label className="flex items-center gap-3 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="cartao_credito"
+                        checked={paymentMethod === 'cartao_credito'}
+                        onChange={(e) => setPaymentMethod(e.target.value as any)}
+                        className="text-blue-600 h-4 w-4"
+                      />
+                      <div className="flex items-center gap-2 text-sm">
+                        <CreditCard className="w-4 h-4 text-purple-600" />
+                        <span className="font-medium">Cartão de Crédito</span>
+                      </div>
+                    </label>
+                    
+                    <label className="flex items-center gap-3 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="cartao_debito"
+                        checked={paymentMethod === 'cartao_debito'}
+                        onChange={(e) => setPaymentMethod(e.target.value as any)}
+                        className="text-blue-600 h-4 w-4"
+                      />
+                      <div className="flex items-center gap-2 text-sm">
+                        <CreditCard className="w-4 h-4 text-indigo-600" />
+                        <span className="font-medium">Cartão de Débito</span>
+                      </div>
+                    </label>
+                    
+                    <label className="flex items-center gap-3 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="voucher"
+                        checked={paymentMethod === 'voucher'}
+                        onChange={(e) => setPaymentMethod(e.target.value as any)}
+                        className="text-blue-600 h-4 w-4"
+                      />
+                      <div className="flex items-center gap-2 text-sm">
+                        <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                        <span className="font-medium">Voucher</span>
+                      </div>
+                    </label>
+                    
+                    <label className="flex items-center gap-3 p-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="misto"
+                        checked={paymentMethod === 'misto'}
+                        onChange={(e) => setPaymentMethod(e.target.value as any)}
+                        className="text-blue-600 h-4 w-4"
+                      />
+                      <div className="flex items-center gap-2 text-sm">
+                        <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        <span className="font-medium">Pagamento Misto</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                
+                {/* Campos específicos por forma de pagamento */}
+                {paymentMethod === 'dinheiro' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Troco para quanto?
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={changeFor || ''}
+                        onChange={(e) => setChangeFor(parseFloat(e.target.value) || 0)}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        placeholder="Valor para troco"
+                      />
+                    </div>
+                    
+                    {/* Mostrar troco calculado */}
+                    {paymentMethod === 'dinheiro' && changeFor && (
+                      <div className="mt-3">
+                        {calculatedChange >= 0 ? (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div className="flex items-center gap-2">
+                              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-medium text-green-800">
+                                  💰 Troco a dar ao cliente:
+                                </p>
+                                <p className="text-lg font-bold text-green-600">
+                                  {formatPrice(calculatedChange)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                            <div className="flex items-center gap-2">
+                              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-medium text-red-800">
+                                  ⚠️ Valor insuficiente!
+                                </p>
+                                <p className="text-sm text-red-600">
+                                  Faltam {formatPrice(Math.abs(calculatedChange))}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {paymentMethod === 'misto' && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-700 text-sm">Valores por Forma:</h4>
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Dinheiro (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={changeFor || ''}
+                        onChange={(e) => setChangeFor(parseFloat(e.target.value) || 0)}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        placeholder="0,00"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        PIX (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={pixValue || ''}
+                        onChange={(e) => setPixValue(parseFloat(e.target.value) || 0)}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        placeholder="0,00"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Cartão (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={cardValue || ''}
+                        onChange={(e) => setCardValue(parseFloat(e.target.value) || 0)}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        placeholder="0,00"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Voucher (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={voucherValue || ''}
+                        onChange={(e) => setVoucherValue(parseFloat(e.target.value) || 0)}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        placeholder="0,00"
+                      />
+                    </div>
+                    
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                      <div className="flex justify-between text-xs">
+                        <span>Total informado:</span>
+                        <span className="font-medium">
+                          {formatPrice((changeFor || 0) + (pixValue || 0) + (cardValue || 0) + (voucherValue || 0))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span>Total da venda:</span>
+                        <span className="font-medium">{formatPrice(getTotal())}</span>
+                      </div>
+                      <div className="flex justify-between text-xs pt-1 border-t border-blue-200 mt-1">
+                        <span>Diferença:</span>
+                        <span className={`font-bold ${
+                          Math.abs(((changeFor || 0) + (pixValue || 0) + (cardValue || 0) + (voucherValue || 0)) - getTotal()) < 0.01
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                        }`}>
+                          {formatPrice(((changeFor || 0) + (pixValue || 0) + (cardValue || 0) + (voucherValue || 0)) - getTotal())}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-3 border-t border-gray-200 flex gap-2">
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="flex-1 px-3 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleFinalizeSale}
+                disabled={items.length === 0 || salesLoading || (paymentMethod === 'dinheiro' && changeFor && calculatedChange < 0)}
+                className="flex-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+              >
+                <CreditCard size={16} />
+                Confirmar
+              </button>
+              
+              {paymentMethod === 'dinheiro' && changeFor && calculatedChange < 0 && (
+                <p className="text-xs text-red-600 text-center mt-2">
+                  ⚠️ Valor insuficiente para completar a venda
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de dividir conta */}
+      {showSplitModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Dividir Conta - Loja 2</h3>
+              <button
+                onClick={handleCloseSplitModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Dividir em quantas partes?
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const newCount = Math.max(2, splitCount - 1);
+                      const splitAmount = getTotal() / newCount;
+                      setSplitCount(newCount);
+                      setSplitAmounts(Array(newCount).fill(splitAmount));
+                    }}
+                    className="bg-gray-200 hover:bg-gray-300 rounded-full p-2 transition-colors"
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <div className="flex-1 text-center text-lg font-bold">
+                    {splitCount} partes
+                  </div>
+                  <button
+                    onClick={() => {
+                      const newCount = Math.min(10, splitCount + 1);
+                      const splitAmount = getTotal() / newCount;
+                      setSplitCount(newCount);
+                      setSplitAmounts(Array(newCount).fill(splitAmount));
+                    }}
+                    className="bg-gray-200 hover:bg-gray-300 rounded-full p-2 transition-colors"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Valores por pessoa:
+                </label>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {splitAmounts.map((amount, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-600 w-16">
+                        Pessoa {index + 1}:
+                      </span>
+                      <div className="relative flex-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={amount.toFixed(2)}
+                          onChange={(e) => updateSplitAmount(index, parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                        />
+                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">
+                          R$
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-purple-50 rounded-lg p-3">
+                <div className="flex justify-between text-sm mb-1">
+                  <span>Total original:</span>
+                  <span className="font-medium">{formatPrice(getTotal())}</span>
+                </div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span>Total dividido:</span>
+                  <span className="font-medium">{formatPrice(getSplitTotal())}</span>
+                </div>
+                <div className="flex justify-between text-sm pt-2 border-t border-purple-200">
+                  <span>Diferença:</span>
+                  <span className={`font-bold ${
+                    Math.abs(getSplitTotal() - getTotal()) < 0.01 
+                      ? 'text-green-600' 
+                      : 'text-red-600'
+                  }`}>
+                    {formatPrice(getSplitTotal() - getTotal())}
+                  </span>
+                </div>
+                {Math.abs(getSplitTotal() - getTotal()) >= 0.01 && (
+                  <p className="text-xs text-red-600 mt-1">
+                    ⚠️ A soma não confere com o total original
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    // Dividir igualmente
+                    const splitAmount = getTotal() / splitCount;
+                    setSplitAmounts(Array(splitCount).fill(splitAmount));
+                  }}
+                  className="flex-1 px-4 py-2 border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 transition-colors text-sm"
+                >
+                  Dividir Igualmente
+                </button>
+                <button
+                  onClick={handleCloseSplitModal}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                >
+                  Cancelar
+                </button>
+              </div>
+              <button
+                onClick={handleCloseSplitModal}
+                disabled={Math.abs(getSplitTotal() - getTotal()) >= 0.01}
+                className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white py-2 rounded-lg font-medium transition-colors"
+              >
+                Confirmar Divisão
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de desconto */}
-      {discount.type === 'percentage' && (
+      {showDiscountModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-800">Aplicar Desconto</h3>
               <button
-                onClick={() => setDiscount({ type: 'none', value: 0 })}
+                onClick={handleCancelDiscount}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <Trash2 size={20} />
+                <X size={20} />
               </button>
             </div>
 
@@ -733,11 +1323,21 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Tipo de Desconto
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
-                    onClick={() => setDiscount({ type: 'percentage', value: discount.value })}
+                    onClick={() => setTempDiscount({ type: 'none', value: 0 })}
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      discount.type === 'percentage'
+                      tempDiscount.type === 'none'
+                        ? 'bg-gray-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Sem Desconto
+                  </button>
+                  <button
+                    onClick={() => setTempDiscount({ type: 'percentage', value: tempDiscount.value })}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      tempDiscount.type === 'percentage'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
@@ -745,9 +1345,9 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
                     Percentual (%)
                   </button>
                   <button
-                    onClick={() => setDiscount({ type: 'amount', value: 0 })}
+                    onClick={() => setTempDiscount({ type: 'amount', value: 0 })}
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      discount.type === 'amount'
+                      tempDiscount.type === 'amount'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
@@ -757,48 +1357,62 @@ const Store2PDVSalesScreen: React.FC<Store2PDVSalesScreenProps> = ({ operator, s
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {discount.type === 'percentage' ? 'Percentual de Desconto' : 'Valor do Desconto'}
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step={discount.type === 'percentage' ? '1' : '0.01'}
-                    min="0"
-                    max={discount.type === 'percentage' ? '100' : getSubtotal()}
-                    value={discount.value}
-                    onChange={(e) => setDiscount(prev => ({ ...prev, value: parseFloat(e.target.value) || 0 }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0"
-                  />
-                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                    {discount.type === 'percentage' ? '%' : 'R$'}
-                  </span>
+              {tempDiscount.type !== 'none' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {tempDiscount.type === 'percentage' ? 'Percentual de Desconto' : 'Valor do Desconto'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step={tempDiscount.type === 'percentage' ? '1' : '0.01'}
+                      min="0"
+                      max={tempDiscount.type === 'percentage' ? '100' : getSubtotal()}
+                      value={tempDiscount.value}
+                      onChange={(e) => setTempDiscount(prev => ({ ...prev, value: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0"
+                    />
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                      {tempDiscount.type === 'percentage' ? '%' : 'R$'}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="bg-blue-50 rounded-lg p-3">
                 <div className="flex justify-between text-sm">
                   <span>Subtotal:</span>
                   <span>{formatPrice(getSubtotal())}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>Desconto:</span>
-                  <span className="text-red-600">-{formatPrice(getDiscountAmount())}</span>
-                </div>
+                {tempDiscount.type !== 'none' && tempDiscount.value > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>Desconto:</span>
+                    <span className="text-red-600">-{formatPrice(getTempDiscountAmount())}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold pt-2 border-t border-blue-200 mt-2">
                   <span>Total:</span>
-                  <span className="text-green-600">{formatPrice(getTotal())}</span>
+                  <span className="text-green-600">
+                    {formatPrice(Math.max(0, getSubtotal() - getTempDiscountAmount()))}
+                  </span>
                 </div>
               </div>
 
-              <button
-                onClick={() => setDiscount({ type: 'none', value: 0 })}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors"
-              >
-                Aplicar Desconto
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCancelDiscount}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleApplyDiscount}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors"
+                >
+                  Aplicar Desconto
+                </button>
+              </div>
             </div>
           </div>
         </div>
