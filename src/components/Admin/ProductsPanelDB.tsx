@@ -15,7 +15,8 @@ import {
   Download,
   Scale,
   Tag,
-  Calendar
+  Calendar,
+  ShoppingBag
 } from 'lucide-react';
 import ImageUploadModal from './ImageUploadModal';
 import ProductScheduleModal from './ProductScheduleModal';
