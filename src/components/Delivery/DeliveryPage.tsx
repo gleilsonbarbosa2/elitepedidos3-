@@ -8,12 +8,13 @@ import Cart from './Cart';
 import AcaiChatbot from '../Chatbot/AcaiChatbot';
 import IARecommender from './IARecommender';
 import StoreStatusBanner from './StoreStatusBanner';
-import { products, categoryNames } from '../../data/products';
+import { categoryNames } from '../../data/products';
 import { Product } from '../../types/product';
 import { useCart } from '../../hooks/useCart';
 import { useStoreHours } from '../../hooks/useStoreHours';
 import { useProductScheduling } from '../../hooks/useProductScheduling';
 import { useRecommendations } from '../../hooks/useRecommendations';
+import { useDeliveryProducts } from '../../hooks/useDeliveryProducts';
 import { 
   getPromotionsOfTheDay, 
   hasTodaySpecialPromotions, 
@@ -49,6 +50,7 @@ const DeliveryPage: React.FC = () => {
   const { getStoreStatus } = useStoreHours();
   const productScheduling = useProductScheduling();
   const { getRecommendations } = useRecommendations();
+  const { products, loading: productsLoading } = useDeliveryProducts();
   
   // Configurar hook para funções de availability
   React.useEffect(() => {
@@ -75,6 +77,18 @@ const DeliveryPage: React.FC = () => {
   // Verificar se hoje tem promoções especiais
   const hasSpecialToday = hasTodaySpecialPromotions(activeProducts);
   const isThursdayElite = isQuintaElite();
+  
+  // Mostrar loading se produtos ainda estão carregando
+  if (productsLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando produtos...</p>
+        </div>
+      </div>
+    );
+  }
   
   // Validar programação de produtos (apenas em desenvolvimento)
   React.useEffect(() => {

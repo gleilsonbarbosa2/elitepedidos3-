@@ -11,9 +11,16 @@ import {
   Eye,
   EyeOff,
   Search,
-  Image as ImageIcon
+  Image as ImageIcon,
+  RefreshCw,
+  Download,
+  Scale,
+  Tag,
+  Calendar
 } from 'lucide-react';
 import ImageUploadModal from './ImageUploadModal';
+import ProductScheduleModal from './ProductScheduleModal';
+import { useProductScheduling } from '../../hooks/useProductScheduling';
 
 const ProductsPanelDB: React.FC = () => {
   const { 
@@ -22,16 +29,44 @@ const ProductsPanelDB: React.FC = () => {
     createProduct, 
     updateProduct, 
     deleteProduct,
-    searchProducts
+    searchProducts,
+    syncDeliveryProducts
   } = useAdminProducts();
+  
+  const { getProductSchedule, saveProductSchedule } = useProductScheduling();
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [selectedProductForSchedule, setSelectedProductForSchedule] = useState<any | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
-  const filteredProducts = searchTerm ? searchProducts(searchTerm) : products;
+  const categories = [
+    { id: 'all', label: 'Todas as Categorias' },
+    { id: 'acai', label: 'Açaí' },
+    { id: 'combo', label: 'Combos' },
+    { id: 'milkshake', label: 'Milkshakes' },
+    { id: 'vitamina', label: 'Vitaminas' },
+    { id: 'sorvetes', label: 'Sorvetes' },
+    { id: 'bebidas', label: 'Bebidas' },
+    { id: 'complementos', label: 'Complementos' },
+    { id: 'sobremesas', label: 'Sobremesas' },
+    { id: 'outros', label: 'Outros' }
+  ];
+
+  const filteredProducts = React.useMemo(() => {
+    let result = searchTerm ? searchProducts(searchTerm) : products;
+    
+    if (selectedCategory !== 'all') {
+      result = result.filter(p => p.category === selectedCategory);
+    }
+    
+    return result;
+  }, [products, searchProducts, searchTerm, selectedCategory]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -40,16 +75,80 @@ const ProductsPanelDB: React.FC = () => {
     }).format(price);
   };
 
+  const handleSyncProducts = async () => {
+    if (confirm('Isso irá importar/atualizar todos os produtos do delivery para o banco de dados. Os produtos existentes serão atualizados. Continuar?')) {
+      setSyncing(true);
+      try {
+        await syncDeliveryProducts();
+        
+        // Mostrar notificação de sucesso
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-3';
+        notification.innerHTML = `
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          <div>
+            <p class="font-semibold">Produtos Sincronizados!</p>
+            <p class="text-sm opacity-90">Delivery atualizado automaticamente</p>
+          </div>
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+          if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+          }
+        }, 5000);
+      } catch (error) {
+        console.error('Erro ao sincronizar:', error);
+        alert('Erro ao sincronizar produtos');
+      } finally {
+        setSyncing(false);
+      }
+    }
+  };
+
+  const handleScheduleProduct = (product: AdminProduct) => {
+    setSelectedProductForSchedule({
+      id: product.id,
+      name: product.name,
+      scheduledDays: product.scheduled_days ? JSON.parse(product.scheduled_days) : null
+    });
+    setShowScheduleModal(true);
+  };
+
+  const handleSaveSchedule = async (productId: string, scheduledDays: any) => {
+    try {
+      await saveProductSchedule(productId, scheduledDays);
+      
+      // Atualizar produto no banco com a programação
+      await updateProduct(productId, {
+        scheduled_days: JSON.stringify(scheduledDays),
+        availability_type: scheduledDays.enabled ? 'specific_days' : 'always'
+      });
+      
+      setShowScheduleModal(false);
+      setSelectedProductForSchedule(null);
+    } catch (error) {
+      console.error('Erro ao salvar programação:', error);
+      alert('Erro ao salvar programação');
+    }
+  };
+
   const handleCreate = () => {
     setEditingProduct({
       id: '',
       name: '',
       category: 'acai',
       price: 0,
+      price_per_gram: undefined,
       description: '',
       image_url: '',
       is_active: true,
       is_weighable: false,
+      has_complements: false,
+      availability_type: 'always',
       created_at: '',
       updated_at: ''
     });
@@ -124,30 +223,148 @@ const ProductsPanelDB: React.FC = () => {
         <div>
           <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
             <Package size={24} className="text-purple-600" />
-            Gerenciar Produtos (Banco de Dados)
+            Gerenciar Produtos de Delivery (Banco de Dados)
           </h2>
-          <p className="text-gray-600">Configure produtos salvos no banco de dados</p>
+          <p className="text-gray-600">Configure produtos do cardápio - alterações refletem automaticamente no delivery</p>
         </div>
-        <button
-          onClick={handleCreate}
-          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-        >
-          <Plus size={20} />
-          Novo Produto
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => window.open('/', '_blank')}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+          >
+            <ShoppingBag size={16} />
+            Ver Delivery
+          </button>
+          <button
+            onClick={handleSyncProducts}
+            disabled={syncing}
+            className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+          >
+            {syncing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Sincronizando...
+              </>
+            ) : (
+              <>
+                <Download size={16} />
+                Sincronizar Produtos
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleCreate}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+          >
+            <Plus size={20} />
+            Novo Produto
+          </button>
+        </div>
       </div>
 
       {/* Search */}
       <div className="bg-white rounded-xl shadow-sm p-4">
-        <div className="relative">
-          <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar produtos..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar produtos..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          </div>
+          
+          <div className="lg:w-64">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-100 rounded-full p-2">
+              <Package size={20} className="text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-blue-700 font-medium">Total de Produtos</p>
+              <p className="text-2xl font-bold text-blue-800">{products.length}</p>
+              <p className="text-xs text-blue-600">Sincronizados com delivery</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <div className="flex items-center gap-3">
+            <Eye size={20} className="text-green-600" />
+            <div>
+              <p className="text-sm text-gray-600">Produtos Ativos</p>
+              <p className="text-xl font-bold text-green-600">
+                {products.filter(p => p.is_active).length}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <div className="flex items-center gap-3">
+            <Tag size={20} className="text-orange-600" />
+            <div>
+              <p className="text-sm text-gray-600">Com Promoção</p>
+              <p className="text-xl font-bold text-orange-600">
+                {products.filter(p => p.original_price && p.original_price > p.price).length}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <div className="flex items-center gap-3">
+            <Calendar size={20} className="text-purple-600" />
+            <div>
+              <p className="text-sm text-gray-600">Programados</p>
+              <p className="text-xl font-bold text-purple-600">
+                {products.filter(p => {
+                  const schedule = p.scheduled_days ? 
+                    (typeof p.scheduled_days === 'string' ? JSON.parse(p.scheduled_days) : p.scheduled_days) : 
+                    null;
+                  return schedule?.enabled;
+                }).length}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Real-time Status */}
+      <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+        <div className="flex items-start gap-3">
+          <div className="bg-green-100 rounded-full p-2 flex-shrink-0">
+            <RefreshCw size={20} className="text-green-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-green-800 mb-2">🔄 Sincronização em Tempo Real Ativa</h3>
+            <ul className="text-sm text-green-700 space-y-1">
+              <li>• <strong>Edições instantâneas:</strong> Alterações aqui aparecem imediatamente no delivery</li>
+              <li>• <strong>Produtos ativos/inativos:</strong> Controle de visibilidade em tempo real</li>
+              <li>• <strong>Preços e promoções:</strong> Atualizações automáticas no cardápio</li>
+              <li>• <strong>Programação de dias:</strong> Quinta Elite e outras promoções controladas aqui</li>
+              <li>• <strong>Imagens:</strong> Upload e associação automática aos produtos</li>
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -160,6 +377,7 @@ const ProductsPanelDB: React.FC = () => {
                 <th className="text-left py-3 px-4 font-medium text-gray-700">Produto</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-700">Categoria</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-700">Preço</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700">Tipo</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-700">Ações</th>
               </tr>
@@ -188,7 +406,7 @@ const ProductsPanelDB: React.FC = () => {
                   </td>
                   <td className="py-4 px-4">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {product.category}
+                      {categories.find(c => c.id === product.category)?.label || product.category}
                     </span>
                   </td>
                   <td className="py-4 px-4">
@@ -203,6 +421,32 @@ const ProductsPanelDB: React.FC = () => {
                         <div className="text-sm text-gray-500 line-through">
                           {formatPrice(product.original_price)}
                         </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="flex flex-wrap gap-1">
+                      {product.is_weighable && (
+                        <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full flex items-center gap-1">
+                          <Scale size={10} />
+                          Pesável
+                        </span>
+                      )}
+                      {product.has_complements && (
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                          Complementos
+                        </span>
+                      )}
+                      {product.original_price && product.original_price > product.price && (
+                        <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                          Promoção
+                        </span>
+                      )}
+                      {product.scheduled_days && JSON.parse(product.scheduled_days)?.enabled && (
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1">
+                          <Calendar size={10} />
+                          Programado
+                        </span>
                       )}
                     </div>
                   </td>
@@ -230,6 +474,13 @@ const ProductsPanelDB: React.FC = () => {
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleScheduleProduct(product)}
+                        className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
+                        title="Programar dias de disponibilidade"
+                      >
+                        <Calendar size={16} />
+                      </button>
                       <button
                         onClick={() => setEditingProduct(product)}
                         className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
@@ -261,6 +512,15 @@ const ProductsPanelDB: React.FC = () => {
                 : 'Nenhum produto cadastrado no banco'
               }
             </p>
+            {!searchTerm && selectedCategory === 'all' && products.length === 0 && (
+              <button
+                onClick={handleSyncProducts}
+                className="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2 mx-auto"
+              >
+                <Download size={16} />
+                Importar Produtos do Delivery
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -334,15 +594,13 @@ const ProductsPanelDB: React.FC = () => {
                   value={editingProduct.category}
                   onChange={(e) => setEditingProduct({
                     ...editingProduct,
-                    category: e.target.value
+                    category: e.target.value as AdminProduct['category']
                   })}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
-                  <option value="acai">Açaí</option>
-                  <option value="combo">Combos</option>
-                  <option value="milkshake">Milkshakes</option>
-                  <option value="vitamina">Vitaminas</option>
-                  <option value="sorvetes">Sorvetes</option>
+                  {categories.filter(cat => cat.id !== 'all').map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.label}</option>
+                  ))}
                 </select>
               </div>
 
@@ -355,12 +613,13 @@ const ProductsPanelDB: React.FC = () => {
                     onChange={(e) => setEditingProduct({
                       ...editingProduct,
                       is_weighable: e.target.checked,
-                      price: e.target.checked ? 0 : editingProduct.price,
+                      price: e.target.checked ? (editingProduct.price_per_gram || 0) * 1000 : editingProduct.price,
                       price_per_gram: e.target.checked ? (editingProduct.price_per_gram || 0.045) : undefined
                     })}
                     className="w-4 h-4 text-purple-600"
                   />
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    <Scale size={16} className="text-purple-600" />
                     Produto pesável (vendido por peso)
                   </span>
                 </label>
@@ -414,6 +673,13 @@ const ProductsPanelDB: React.FC = () => {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="Deixe vazio se não for promoção"
                 />
+                {editingProduct.original_price && editingProduct.original_price > editingProduct.price && (
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <Tag size={12} />
+                    Desconto: {formatPrice(editingProduct.original_price - editingProduct.price)} 
+                    ({(((editingProduct.original_price - editingProduct.price) / editingProduct.original_price) * 100).toFixed(1)}%)
+                  </p>
+                )}
               </div>
 
               {/* Description */}
@@ -432,6 +698,27 @@ const ProductsPanelDB: React.FC = () => {
                 />
               </div>
 
+              {/* Has Complements */}
+              <div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editingProduct.has_complements}
+                    onChange={(e) => setEditingProduct({
+                      ...editingProduct,
+                      has_complements: e.target.checked
+                    })}
+                    className="w-4 h-4 text-purple-600"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Produto possui complementos/personalizações
+                  </span>
+                </label>
+                <p className="text-xs text-gray-500 mt-1">
+                  Marque se o produto permite escolha de complementos, cremes, adicionais, etc.
+                </p>
+              </div>
+
               {/* Active Status */}
               <div>
                 <label className="flex items-center gap-2">
@@ -445,9 +732,12 @@ const ProductsPanelDB: React.FC = () => {
                     className="w-4 h-4 text-purple-600"
                   />
                   <span className="text-sm font-medium text-gray-700">
-                    Produto ativo (visível no cardápio)
+                    Produto ativo (visível no cardápio de delivery)
                   </span>
                 </label>
+                <p className="text-xs text-gray-500 mt-1">
+                  Desmarcar remove o produto do delivery instantaneamente
+                </p>
               </div>
             </div>
 
@@ -498,6 +788,20 @@ const ProductsPanelDB: React.FC = () => {
             setShowImageUpload(false);
           }}
           currentImage={editingProduct?.image_url}
+        />
+      )}
+
+      {/* Product Schedule Modal */}
+      {showScheduleModal && selectedProductForSchedule && (
+        <ProductScheduleModal
+          product={selectedProductForSchedule}
+          isOpen={showScheduleModal}
+          onClose={() => {
+            setShowScheduleModal(false);
+            setSelectedProductForSchedule(null);
+          }}
+          onSave={handleSaveSchedule}
+          currentSchedule={selectedProductForSchedule.scheduledDays}
         />
       )}
     </div>

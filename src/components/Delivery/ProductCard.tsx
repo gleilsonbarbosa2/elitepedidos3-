@@ -3,7 +3,6 @@ import { Plus, Zap, Clock, Package } from 'lucide-react';
 import { Product } from '../../types/product';
 import { formatPrice } from '../../utils/formatters';
 import { isProductAvailable } from '../../utils/availability';
-import { useImageUpload } from '../../hooks/useImageUpload';
 
 const IMAGE_PLACEHOLDER = 'https://images.pexels.com/photos/1092730/pexels-photo-1092730.jpeg?auto=compress&cs=tinysrgb&w=400';
 
@@ -15,10 +14,7 @@ interface ProductCardProps {
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal, isSpecialOfTheDay = false, disabled = false }) => {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageLoading, setImageLoading] = useState(true);
   const isAvailable = isProductAvailable(product) && product.isActive !== false;
-  const { getProductImage } = useImageUpload();
 
   const getDisplayPrice = () => {
     if (product.pricePerGram) {
@@ -26,55 +22,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal, isSpeci
     }
     return formatPrice(product.price);
   };
-
-  useEffect(() => {
-    const loadProductImage = async () => {
-      try {
-        // Skip image loading if Supabase is not configured
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-        if (!supabaseUrl || !supabaseKey ||
-            supabaseUrl === 'your_supabase_url_here' ||
-            supabaseKey === 'your_supabase_anon_key_here') {
-          setImageUrl(product.image);
-          setImageLoading(false);
-          return;
-        }
-
-        // Set a timeout to prevent long loading states
-        const timeoutId = setTimeout(() => {
-          if (imageLoading) {
-            setImageUrl(product.image);
-            setImageLoading(false);
-          }
-        }, 3000);
-
-        // Try to get image from database
-        try {
-          const dbImageUrl = await getProductImage(product.id);
-          
-          if (dbImageUrl) {
-            setImageUrl(dbImageUrl);
-          } else {
-            setImageUrl(product.image);
-          }
-        } catch (error) {
-          console.error('Error loading product image:', error);
-          setImageUrl(product.image);
-        }
-        
-        clearTimeout(timeoutId);
-        setImageLoading(false);
-      } catch (error) {
-        console.error('Error loading product image:', error);
-        setImageUrl(product.image);
-        setImageLoading(false);
-      }
-    };
-
-    loadProductImage();
-  }, [product.id, product.image]);
 
   return (
     <div className={`bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-105 ${
@@ -90,23 +37,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onOpenModal, isSpeci
       )}
       
       <div className="relative">
-        {imageLoading ? (
-          <div className="w-full h-48 bg-gray-200 animate-pulse flex items-center justify-center">
-            <div className="text-gray-400">
-              <Package size={24} />
-            </div>
-          </div>
-        ) : (
-          <img
-            src={imageUrl || product.image}
-            alt={product.name}
-            className="w-full h-48 object-cover transition-opacity duration-300"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = IMAGE_PLACEHOLDER;
-            }}
-          />
-        )}
+        <img
+          src={product.image}
+          alt={product.name}
+          className="w-full h-48 object-cover transition-opacity duration-300"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = IMAGE_PLACEHOLDER;
+          }}
+        />
         
         {!isAvailable && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
