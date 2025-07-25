@@ -380,7 +380,7 @@ const ProductsPanelDB: React.FC = () => {
       setIsCreating(false);
     } catch (error) {
       console.error('Erro ao salvar produto:', error);
-      alert(`Erro ao salvar produto: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      alert(\`Erro ao salvar produto: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setSaving(false);
     }
@@ -397,7 +397,7 @@ const ProductsPanelDB: React.FC = () => {
 
   const handleAddComplementGroup = () => {
     setLocalComplementGroups(prev => [...prev, {
-      id: `group-${Date.now()}`,
+      id: \`group-${Date.now()}`,
       name: 'Novo Grupo',
       required: false,
       minItems: 0,
@@ -421,7 +421,7 @@ const ProductsPanelDB: React.FC = () => {
   const handleAddComplement = (groupIndex: number) => {
     setLocalComplementGroups(prev => {
       const newGroups = [...prev];
-      newGroups[groupIndex].complements.push({ id: `comp-${Date.now()}`, name: '', price: 0, description: '' });
+      newGroups[groupIndex].complements.push({ id: \`comp-${Date.now()}`, name: '', price: 0, description: '' });
       return newGroups;
     });
   };
@@ -444,7 +444,7 @@ const ProductsPanelDB: React.FC = () => {
 
   const handleAddSize = () => {
     setLocalSizes(prev => [...prev, {
-      id: `size-${Date.now()}`,
+      id: \`size-${Date.now()}`,
       name: '',
       price: 0,
       ml: undefined,
@@ -576,7 +576,7 @@ const ProductsPanelDB: React.FC = () => {
                     )}
                   </td>
                   <td className="py-4 px-4">
-                    <div className={`font-medium ${
+                    <div className={\`font-medium ${
                       product.stock_quantity <= product.min_stock ? 'text-red-600' : 'text-green-600'
                     }`}>
                       {product.stock_quantity}
@@ -588,7 +588,7 @@ const ProductsPanelDB: React.FC = () => {
                   <td className="py-4 px-4">
                     <button
                       onClick={() => handleToggleActive(product)}
-                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                      className={\`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
                         product.is_active
                           ? 'bg-green-100 text-green-800 hover:bg-green-200'
                           : 'bg-red-100 text-red-800 hover:bg-red-200'
