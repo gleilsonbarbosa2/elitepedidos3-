@@ -173,7 +173,7 @@ const PDVProductsManager: React.FC = () => {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (confirm(`Tem certeza que deseja excluir "${name}"?`)) {
+    if (confirm("Tem certeza que deseja excluir \"" + name + "\"?")) {
       try {
         await deleteProduct(id);
       } catch (error) {
