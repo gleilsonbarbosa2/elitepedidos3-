@@ -1,3 +1,4 @@
+```typescript
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { products as staticProducts } from '../data/products';
@@ -16,9 +17,10 @@ export interface AdminProduct {
   is_active: boolean;
   is_weighable: boolean;
   has_complements: boolean;
-  complement_groups?: any;
-  sizes?: any;
-  scheduled_days?: any;
+  complement_groups?: string | null; // Alterado para string | null para JSONB
+  has_sizes?: boolean; // Novo campo para indicar se tem tamanhos
+  sizes?: string | null; // Alterado para string | null para JSONB
+  scheduled_days?: string | null; // Alterado para string | null para JSONB
   availability_type?: 'always' | 'scheduled' | 'specific_days';
   created_at: string;
   updated_at: string;
@@ -67,8 +69,8 @@ export const useAdminProducts = () => {
         category: product.category,
         price: product.price,
         original_price: product.originalPrice,
-        code: product.code, // Incluir o campo code
-        barcode: product.barcode, // Incluir o campo barcode
+        code: product.code || '', // Incluir o campo code
+        barcode: product.barcode || '', // Incluir o campo barcode
         price_per_gram: product.pricePerGram,
         description: product.description,
         image_url: product.image,
@@ -76,7 +78,8 @@ export const useAdminProducts = () => {
         is_weighable: product.is_weighable || false,
         has_complements: !!(product.complementGroups && product.complementGroups.length > 0),
         complement_groups: product.complementGroups ? JSON.stringify(product.complementGroups) : null,
-        sizes: product.sizes ? JSON.stringify(product.sizes) : null,
+        has_sizes: !!(product.sizes && product.sizes.length > 0), // Novo campo
+        sizes: product.sizes ? JSON.stringify(product.sizes) : null, // Incluir sizes
         scheduled_days: product.scheduledDays ? JSON.stringify(product.scheduledDays) : null,
         availability_type: product.availability?.type || 'always'
       }));
@@ -186,7 +189,9 @@ export const useAdminProducts = () => {
     return products.filter(product => 
       product.name.toLowerCase().includes(searchTerm) ||
       product.category.toLowerCase().includes(searchTerm) ||
-      product.description.toLowerCase().includes(searchTerm)
+      product.description.toLowerCase().includes(searchTerm) ||
+      product.code?.toLowerCase().includes(searchTerm) ||
+      product.barcode?.toLowerCase().includes(searchTerm)
     );
   }, [products]);
 
@@ -206,3 +211,4 @@ export const useAdminProducts = () => {
     syncDeliveryProducts
   };
 };
+```
