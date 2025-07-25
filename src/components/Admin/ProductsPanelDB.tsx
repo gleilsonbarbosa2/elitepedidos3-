@@ -380,7 +380,7 @@ const ProductsPanelDB: React.FC = () => {
       setIsCreating(false);
     } catch (error) {
       console.error('Erro ao salvar produto:', error);
-      alert(\`Erro ao salvar produto: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      alert(`Erro ao salvar produto: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setSaving(false);
     }
