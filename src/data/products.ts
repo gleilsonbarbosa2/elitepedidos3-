@@ -57,8 +57,6 @@ const standardComplementGroups = [
       { id: 'creme-maracuja', name: 'CREME DE MARACUJÁ', price: 0, description: 'Creme azedinho de maracujá' },
       { id: 'creme-pacoca', name: 'CREME DE PAÇOCA', price: 0, description: 'Creme de paçoca' },
       { id: 'creme-ovomaltine', name: 'CREME DE OVOMALTINE', price: 0, description: 'Creme de ovomaltine' },
-      { id: 'creme-coco', name: 'CREME DE COCO', price: 0, description: 'Creme de coco' },
-      { id: 'creme-morangotela', name: 'CREME MORANGOTELA', price: 0, description: 'Morango+Nutela' },
       { id: 'creme-pistache', name: 'CREME DE PISTACHE', price: 0, description: 'Creme de pistache' }
     ]
   },
@@ -224,8 +222,6 @@ const complementsFor1Creme2Mix = [
       { id: 'creme-maracuja', name: 'CREME DE MARACUJÁ', price: 0, description: 'Creme azedinho de maracujá' },
       { id: 'creme-pacoca', name: 'CREME DE PAÇOCA', price: 0, description: 'Creme de paçoca' },
       { id: 'creme-ovomaltine', name: 'CREME DE OVOMALTINE', price: 0, description: 'Creme de ovomaltine' },
-      { id: 'creme-coco', name: 'CREME DE COCO', price: 0, description: 'Creme de coco' },
-      { id: 'creme-morangotela', name: 'CREME MORANGOTELA', price: 0, description: 'Morango+Nutela' },
       { id: 'creme-pistache', name: 'CREME DE PISTACHE', price: 0, description: 'Creme de pistache' }
     ]
   },
@@ -316,8 +312,6 @@ const complementsFor5Mix = [
       { id: 'creme-maracuja', name: 'CREME DE MARACUJÁ', price: 0, description: 'Creme azedinho de maracujá' },
       { id: 'creme-pacoca', name: 'CREME DE PAÇOCA', price: 0, description: 'Creme de paçoca' },
       { id: 'creme-ovomaltine', name: 'CREME DE OVOMALTINE', price: 0, description: 'Creme de ovomaltine' },
-      { id: 'creme-coco', name: 'CREME DE COCO', price: 0, description: 'Creme de coco' },
-      { id: 'creme-morangotela', name: 'CREME MORANGOTELA', price: 0, description: 'Morango+Nutela' },
       { id: 'creme-pistache', name: 'CREME DE PISTACHE', price: 0, description: 'Creme de pistache' }
     ]
   },
