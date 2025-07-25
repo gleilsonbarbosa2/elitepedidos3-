@@ -52,6 +52,15 @@ const DeliveryPage: React.FC = () => {
   const { getRecommendations } = useRecommendations();
   const { products, loading: productsLoading } = useDeliveryProducts();
   
+  // Filtrar apenas produtos ativos
+  const activeProducts = products.filter(product => {
+    const isActive = product.isActive !== false;
+    if (!isActive) {
+      console.log(`🚫 Produto ${product.name} filtrado (inativo)`);
+    }
+    return isActive;
+  });
+  
   // Configurar hook para funções de availability
   React.useEffect(() => {
     setProductSchedulingHook(productScheduling);
@@ -71,15 +80,6 @@ const DeliveryPage: React.FC = () => {
       validateProductSchedules(activeProducts);
     }
   }, [activeProducts]);
-  
-  // Filtrar apenas produtos ativos
-  const activeProducts = products.filter(product => {
-    const isActive = product.isActive !== false;
-    if (!isActive) {
-      console.log(`🚫 Produto ${product.name} filtrado (inativo)`);
-    }
-    return isActive;
-  });
   
   // Verificar se hoje tem promoções especiais
   const hasSpecialToday = hasTodaySpecialPromotions(activeProducts);
